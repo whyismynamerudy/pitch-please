@@ -1,5 +1,5 @@
 .venv/
 venv
 .env
-backend/voice/__pycache__/
+**/__pycache__/
 *.wav
