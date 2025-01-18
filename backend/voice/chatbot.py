@@ -1,3 +1,8 @@
+
+import sys
+import select
+import termios
+import tty
 import os
 import asyncio
 import numpy as np
@@ -12,6 +17,7 @@ import concurrent.futures
 from langchain.schema import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain.callbacks.base import BaseCallbackHandler
+
 
 # Load environment variables
 load_dotenv()
@@ -117,7 +123,10 @@ async def get_response(personality_name, history, user_input):
 # -------------------------------------------------
 # Audio Recording and Transcription
 # -------------------------------------------------
+first_run = True  # Global flag for first run
+
 def record_audio(rate=16000, chunk=220, silence_threshold=100, silence_duration=1):
+    global first_run  # Access the global flag
     audio = pyaudio.PyAudio()
     stream_audio = audio.open(
         rate=rate,
@@ -136,33 +145,55 @@ def record_audio(rate=16000, chunk=220, silence_threshold=100, silence_duration=
 
     print("Start speaking...")
 
-    while True:
-        data = stream_audio.read(chunk, exception_on_overflow=False)
-        pegel = np.abs(np.frombuffer(data, dtype=np.int16)).mean()
-
-        long_term_noise_level = long_term_noise_level * 0.99 + pegel * (1.0 - 0.99)
-        current_noise_level = current_noise_level * 0.90 + pegel * (1.0 - 0.90)
-
-        if voice_activity_detected:
-            frames.append(data)
-            if current_noise_level < long_term_noise_level + silence_threshold:
-                silence_timer += chunk / rate
-                if silence_timer >= silence_duration:
+    if first_run:
+        print("Press any key to end your speech.")
+        # Set terminal to raw mode to detect a single key press
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)  # Switch to raw mode
+            while True:
+                data = stream_audio.read(chunk, exception_on_overflow=False)
+                frames.append(data)
+                if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                    print("Speech ended by key press.")
+                    sys.stdin.read(1)  # Consume the key press
                     break
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)  # Restore terminal settings
+   
+    else:
+        while True:
+            data = stream_audio.read(chunk, exception_on_overflow=False)
+            pegel = np.abs(np.frombuffer(data, dtype=np.int16)).mean()
+
+            long_term_noise_level = long_term_noise_level * 0.99 + pegel * (1.0 - 0.99)
+            current_noise_level = current_noise_level * 0.90 + pegel * (1.0 - 0.90)
+
+            if voice_activity_detected:
+                frames.append(data)
+                if current_noise_level < long_term_noise_level + silence_threshold:
+                    silence_timer += chunk / rate
+                    if silence_timer >= silence_duration:
+                        break
+                else:
+                    silence_timer = 0.0
             else:
-                silence_timer = 0.0
-        else:
-            if current_noise_level > long_term_noise_level + silence_threshold:
-                voice_activity_detected = True
-                frames.extend(audio_buffer)
-                audio_buffer.clear()
-                silence_timer = 0.0
-            else:
-                audio_buffer.append(data)
+                if current_noise_level > long_term_noise_level + silence_threshold:
+                    voice_activity_detected = True
+                    frames.extend(audio_buffer)
+                    audio_buffer.clear()
+                    silence_timer = 0.0
+                else:
+                    audio_buffer.append(data)
 
     stream_audio.stop_stream()
     stream_audio.close()
     audio.terminate()
+
+    # Update the global flag after the first run
+    # global first_run
+    first_run = False
 
     audio_bytes = b''.join(frames)
     audio_np = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
