@@ -1,0 +1,176 @@
+from langchain.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+from typing import List, Dict, Any
+import json
+from dataclasses import asdict
+
+class ConsensusBuilder:
+    def __init__(self, openai_api_key: str):
+        print("\n🔧 Initializing ConsensusBuilder...")
+        self.discussion_template = PromptTemplate(
+            input_variables=["initial_scores", "current_category", "previous_discussion"],
+            template="""You are facilitating a discussion between three judges about a hackathon project.
+
+Initial Scores for {current_category}:
+{initial_scores}
+
+Previous Discussion (if any):
+{previous_discussion}
+
+As judges, discuss the scores for this category. Each judge should:
+1. Explain their reasoning for their score
+2. Listen to other perspectives
+3. Consider adjusting their score based on other judges' input
+4. Work towards a consensus score
+
+Format your response as a JSON string with this exact structure:
+{{
+    "discussion": ["Judge A: point...", "Judge B: response...", ...],
+    "consensus_score": number,
+    "reasoning": "explanation for final consensus"
+}}"""
+        )
+        
+        print("🤖 Initializing ChatOpenAI for consensus...")
+        self.llm = ChatOpenAI(
+            api_key=openai_api_key,
+            model_name="gpt-4",
+            temperature=0.7
+        )
+        
+        print("🔄 Creating consensus chain...")
+        self.consensus_chain = self.discussion_template | self.llm
+        print("✅ ConsensusBuilder initialized successfully")
+
+    async def build_consensus(
+        self,
+        category: str,
+        initial_evaluations: List[Any]  # Changed type hint to Any to accept dataclass
+    ) -> Dict[str, Any]:
+        """Build consensus among judges for a specific category."""
+        print(f"\n🎯 Building consensus for category: {category}")
+        
+        # Format initial scores for discussion
+        print("📊 Formatting initial scores...")
+        
+        # Convert dataclass instances to dictionaries and format scores
+        initial_scores = "\n".join([
+            f"{eval.judge_name}: {eval.scores[category]} - {eval.feedback[category]}"
+            for eval in initial_evaluations
+        ])
+        
+        print("\n📝 Initial scores and feedback:")
+        print(initial_scores)
+
+        # Initialize discussion
+        previous_discussion = ""
+        round_count = 0
+        max_rounds = 3
+        final_consensus = None
+
+        while round_count < max_rounds:
+            print(f"\n🔄 Starting discussion round {round_count + 1}/{max_rounds}")
+            try:
+                print("⏳ Awaiting consensus chain response...")
+                response = await self.consensus_chain.ainvoke({
+                    "initial_scores": initial_scores,
+                    "current_category": category,
+                    "previous_discussion": previous_discussion
+                })
+                
+                print("\n📝 Raw consensus response:")
+                print("-" * 40)
+                print(response.content)
+                print("-" * 40)
+                
+                try:
+                    result = json.loads(response.content)
+                    print("✅ Successfully parsed consensus response")
+                    
+                    if 'consensus_score' in result:
+                        print(f"🎉 Consensus reached! Score: {result['consensus_score']}")
+                        final_consensus = result
+                        break
+                    
+                    print("⏳ No consensus yet, continuing discussion...")
+                    previous_discussion += "\n" + "\n".join(result['discussion'])
+                    
+                except json.JSONDecodeError as e:
+                    print(f"❌ Error parsing consensus discussion: {str(e)}")
+                    break
+                    
+            except Exception as e:
+                print(f"❌ Error in consensus round: {str(e)}")
+                break
+                
+            round_count += 1
+            print(f"✅ Completed round {round_count}")
+
+        if not final_consensus:
+            print("⚠️ No consensus reached, calculating average score...")
+            # If no consensus reached, average the scores
+            avg_score = sum(
+                eval.scores[category] for eval in initial_evaluations
+            ) / len(initial_evaluations)
+            
+            final_consensus = {
+                "discussion": [previous_discussion] if previous_discussion else ["No detailed discussion available"],
+                "consensus_score": avg_score,
+                "reasoning": "Consensus not reached, using average score"
+            }
+            print(f"📊 Used average score: {avg_score}")
+
+        print("✅ Consensus building completed")
+        return final_consensus
+
+class JudgePanelModerator:
+    def __init__(self, openai_api_key: str):
+        print("\n🎭 Initializing JudgePanelModerator...")
+        self.consensus_builder = ConsensusBuilder(openai_api_key)
+        print("✅ JudgePanelModerator initialized")
+        
+    async def moderate_panel_discussion(
+        self,
+        evaluations: List[Dict[str, Any]],
+        rubric_categories: List[str]
+    ) -> Dict[str, Any]:
+        """Moderate a full panel discussion across all categories."""
+        print("\n🎯 Starting panel discussion moderation...")
+        
+        final_scores = {}
+        discussions = {}
+        
+        for category in rubric_categories:
+            print(f"\n📋 Processing category: {category}")
+            consensus = await self.consensus_builder.build_consensus(
+                category, evaluations
+            )
+            
+            final_scores[category] = consensus["consensus_score"]
+            discussions[category] = {
+                "discussion_log": consensus["discussion"],
+                "final_reasoning": consensus["reasoning"]
+            }
+            print(f"✅ Completed consensus for {category}")
+        
+        print("\n📝 Generating panel summary...")
+        panel_summary = self._generate_panel_summary(discussions)
+        
+        return {
+            "final_scores": final_scores,
+            "discussion_records": discussions,
+            "panel_summary": panel_summary
+        }
+    
+    def _generate_panel_summary(self, discussions: Dict[str, Any]) -> str:
+        """Generate a summary of the panel's overall discussion process."""
+        print("\n📊 Generating summary of panel discussions...")
+        summary = []
+        for category, discussion in discussions.items():
+            print(f"Processing summary for {category}...")
+            summary.append(f"\n## {category} Discussion Summary:")
+            summary.append(discussion["final_reasoning"])
+        
+        full_summary = "\n".join(summary)
+        print("✅ Panel summary generated")
+        return full_summary
