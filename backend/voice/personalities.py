@@ -1,4 +1,3 @@
-# personalities.py
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
