@@ -1,7 +1,3 @@
-"""
-We should comment out the print statements if we want it to be fast
-"""
-
 import os
 import asyncio
 import wave
@@ -15,8 +11,9 @@ from elevenlabs import ElevenLabs, stream
 import pyaudio
 from faster_whisper import WhisperModel
 import concurrent.futures  
+from langchain.schema import HumanMessage, AIMessage
+from langchain.memory import ChatMessageHistory
 
-# Load environment variables
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
@@ -27,7 +24,7 @@ if not ELEVENLABS_API_KEY:
     raise ValueError("ELEVENLABS_API_KEY not found in .env file.")
 
 whisper_model = WhisperModel(
-    "small.en",
+    "base.en",
     device="cpu",
     compute_type="int8"
 )
@@ -35,11 +32,11 @@ whisper_model = WhisperModel(
 elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
 personalities = get_personality_chains(OPENAI_API_KEY)
-PERSONALITY_NAMES = list(personalities.keys()) 
+PERSONALITY_NAMES = list(personalities.keys())  
 
 decider_llm = ChatOpenAI(
     api_key=OPENAI_API_KEY,
-    model_name="gpt-4o-mini",
+    model_name="gpt-4o-mini",  
     temperature=0.0,  
     streaming=False,
 )
@@ -67,7 +64,7 @@ async def decide_personality(user_text: str) -> str:
 def record_audio(
     filename="voice_record.wav",
     rate=16000,
-    chunk=20,
+    chunk=220,
     silence_threshold=100,
     silence_duration=1
 ):
@@ -170,20 +167,15 @@ def parse_speak_with_each_other(response_text):
     if "SpeakWithEachOther: true" in response_text:
         parsed_output["speak_with_each_other"] = True
 
-        # Extract the lines after the flag
         try:
-            # Split the response into lines
             lines = response_text.splitlines()
-            # Find the line with the flag
             flag_index = next(i for i, line in enumerate(lines) if "SpeakWithEachOther: true" in line)
-            # The subsequent lines should be the personalities' messages
             for line in lines[flag_index + 1:]:
                 line = line.strip()
                 if any(line.startswith(p + ":") for p in PERSONALITY_NAMES):
                     speaker, content = line.split(":", 1)
                     parsed_output["lines"].append((speaker.strip(), content.strip()))
         except StopIteration:
-            # Flag not found properly, treat as false
             parsed_output["speak_with_each_other"] = False
             parsed_output["lines"] = [("UserDirected", response_text)]
 
@@ -195,11 +187,9 @@ def parse_speak_with_each_other(response_text):
             lines = response_text.splitlines()
             # Find the line with the flag
             flag_index = next(i for i, line in enumerate(lines) if "SpeakWithEachOther: false" in line)
-            # The next line should be the response
             user_response = lines[flag_index + 1].strip()
             parsed_output["lines"] = [("UserDirected", user_response)]
         except (StopIteration, IndexError):
-            # Flag not found properly or no line after flag
             parsed_output["lines"] = [("UserDirected", response_text)]
     else:
         # If no flag is present, treat the entire response as user-directed
@@ -208,7 +198,7 @@ def parse_speak_with_each_other(response_text):
     return parsed_output
 
 async def chat_loop():
-    history = ""
+    chat_history = ChatMessageHistory()
 
     print("Chatbot is ready. Press Enter to speak. Type 'exit' to quit.")
 
@@ -230,12 +220,17 @@ async def chat_loop():
         if not user_input:
             continue
 
-        # 2) Append user input to history
-        history += f"User: {user_input}\n"
+        # 2) Add user message to history
+        chat_history.add_message(HumanMessage(content=user_input))
 
-        # 3) Determine which personality to use:
-        #    - If user explicitly mentions "Alice", "Bob", or "Charlie" in user_input, pick that.
-        #    - Otherwise, call the decider to choose.
+        # 3) Format history for the prompt
+        formatted_history = ""
+        for message in chat_history.messages:
+            if isinstance(message, HumanMessage):
+                formatted_history += f"User: {message.content}\n"
+            elif isinstance(message, AIMessage):
+                formatted_history += f"{message.content}\n"
+
         chosen_personality = None
         for p in PERSONALITY_NAMES:
             if p.lower() in user_input.lower():
@@ -247,17 +242,17 @@ async def chat_loop():
 
         print(f"Selected personality: {chosen_personality}")
 
-        response = await get_response(chosen_personality, history, user_input)
+        response = await get_response(chosen_personality, formatted_history, user_input)
 
-        history += f"{chosen_personality}: {response}\n"
+        chat_history.add_message(AIMessage(content=response))
 
         parsed = parse_speak_with_each_other(response)
 
         if parsed["speak_with_each_other"]:
             print(f"{chosen_personality} decided to speak with the others.")
             for (speaker, text) in parsed["lines"]:
-                # Print
                 print(f"{speaker}: {text}")
+                chat_history.add_message(AIMessage(content=text))
                 # TTS
                 audio_stream = elevenlabs_client.text_to_speech.convert_as_stream(
                     text=text,
@@ -268,6 +263,8 @@ async def chat_loop():
         else:
             text = parsed["lines"][0][1]
             print(f"{chosen_personality}: {text}")
+            chat_history.add_message(AIMessage(content=text))
+            # TTS
             audio_stream = elevenlabs_client.text_to_speech.convert_as_stream(
                 text=text,
                 voice_id="JBFqnCBsd6RMkjVDRZzb",

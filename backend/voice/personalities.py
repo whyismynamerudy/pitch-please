@@ -3,6 +3,7 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
+# Define the personalities
 PERSONALITIES = [
     {
         "name": "Alice",
@@ -22,7 +23,7 @@ def get_personality_chains(openai_api_key):
     chains = {}
     for personality in PERSONALITIES:
         prompt = PromptTemplate(
-            input_variables=["history", "user_input"],
+            input_variables=["user_input"],
             template=(
                 f"You are {personality['name']}, {personality['description']}. "
                 f"You are one of three personalities: Alice, Bob, and Charlie.\n\n"
@@ -44,14 +45,13 @@ def get_personality_chains(openai_api_key):
                 "You may decide at any time to invite another personality's perspective by naming them explicitly.\n\n"
                 
                 "Conversation so far:\n"
-                "{history}\n"
                 "User: {user_input}\n"
                 f"{personality['name']}:\n```"
             ),
         )
         llm = ChatOpenAI(
             api_key=openai_api_key,
-            model_name="gpt-4o-mini",
+            model_name="gpt-4o-mini",  
             temperature=0.7,
             streaming=True,
         )

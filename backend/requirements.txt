@@ -10,3 +10,7 @@ websockets
 langchain-openai
 elevenlabs
 torch
+opencv-python-headless
+deepface
+tf-keras
+langchain-community
