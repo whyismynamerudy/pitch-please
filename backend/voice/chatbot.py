@@ -200,7 +200,7 @@ async def chat_loop():
     print("\n Chatbot is ready. Press Enter to speak. Type 'exit' to quit.")
 
     while True:
-        input_trigger = input("Press Enter to speak or 'exit' to quit: ")
+        input_trigger = input("\n Press Enter to speak or 'exit' to quit: ")
         if input_trigger.lower() in ["exit", "quit", "bye"]:
             print("Exiting chat. Goodbye!")
             await generate_and_play_audio("Goodbye!", "JBFqnCBsd6RMkjVDRZzb")
@@ -208,6 +208,7 @@ async def chat_loop():
 
         audio_np = await asyncio.to_thread(record_audio)
         user_input = await transcribe_audio_async(audio_np)
+        audio_length = len(audio_np) / 16000  # Assuming the sample rate is 16000 Hz
         if not user_input:
             continue
         num_words = len(user_input.split())
