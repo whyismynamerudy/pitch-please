@@ -1,6 +1,8 @@
 import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision"
 import { Button } from "@/components/ui/button"
 import { AppleCardsCarousel } from "@/components/apple-cards-carousel"
+import Link from 'next/link'
+
 export default function Home() {
   return (
     <div className="min-h-screen relative" style={{ background: 'rgb(22, 14, 34)' }}>
@@ -16,9 +18,11 @@ export default function Home() {
             <a href="/" className="text-white text-xl font-medium">
               Home
             </a>
-            <Button className="bg-white text-[rgb(22,14,34)] hover:bg-white/90">
-              Get Started
-            </Button>
+            <Link href="/upload-page">
+              <Button className="bg-white text-[rgb(22,14,34)] hover:bg-white/90">
+                Get Started
+              </Button>
+            </Link>
           </div>
         </nav>
 
