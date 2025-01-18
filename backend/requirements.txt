@@ -14,3 +14,5 @@ opencv-python-headless
 deepface
 tf-keras
 langchain-community
+faster_whisper
+numpy

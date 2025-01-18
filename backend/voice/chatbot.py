@@ -210,6 +210,10 @@ async def chat_loop():
         user_input = await transcribe_audio_async(audio_np)
         if not user_input:
             continue
+        num_words = len(user_input.split())
+        wpm = num_words / audio_length * 60
+
+        print(f"User: {user_input} [{wpm} wpm]")
 
         print(f"You said: {user_input}")
         chat_history.add_message(HumanMessage(content=user_input))
