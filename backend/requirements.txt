@@ -10,3 +10,5 @@ websockets
 langchain-openai
 elevenlabs
 torch
+faster_whisper
+numpy

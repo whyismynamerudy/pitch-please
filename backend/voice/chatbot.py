@@ -124,8 +124,11 @@ def record_audio(
         wf.setsampwidth(audio.get_sample_size(pyaudio.paInt16))
         wf.setframerate(rate)
         wf.writeframes(b''.join(frames))
+
+    # length of audio file in seconds
+    audio_length = len(frames) * chunk / rate
     
-    return filename
+    return filename, audio_length
 
 def transcribe_audio(filename):
     segments, info = whisper_model.transcribe(filename, beam_size=1)
@@ -225,13 +228,17 @@ async def chat_loop():
             break
 
         # 1) Record from microphone, then transcribe
-        audio_file = record_audio()
+        audio_file, audio_length = record_audio()
         user_input = await transcribe_audio_async(audio_file)
         if not user_input:
             continue
+        num_words = len(user_input.split())
+        wpm = num_words / audio_length * 60
+
+        print(f"User: {user_input} [{wpm} wpm]")
 
         # 2) Append user input to history
-        history += f"User: {user_input}\n"
+        history += f"User: {user_input} [{wpm} wpm]\n"
 
         # 3) Determine which personality to use:
         #    - If user explicitly mentions "Alice", "Bob", or "Charlie" in user_input, pick that.
