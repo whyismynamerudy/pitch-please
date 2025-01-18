@@ -73,5 +73,5 @@ if __name__ == "__main__":
         transcript_file,
         wpm,
         time,
-        "emotion_data.json"  # This should be the output from emotion detection
+        "emotion_data.json"  
     )

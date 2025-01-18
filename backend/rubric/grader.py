@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
-from pydantic import BaseModel, Field  # Updated import
+from pydantic import BaseModel, Field  
 import json
 import os
 from typing import Dict, Any
@@ -64,7 +64,7 @@ def analyze_presentation(data: Dict[str, Any], openai_api_key: str) -> Dict[str,
     except Exception as e:
         print(f"Error during analysis: {e}")
         return None
-
+    
 def grade_presentation(json_file_path: str, openai_api_key: str) -> None:
     """Main function to grade a presentation from a JSON file."""
     try:
