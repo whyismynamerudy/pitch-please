@@ -5,69 +5,69 @@ import json
 
 JUDGE_PERSONAS = [
     {
-        "name": "TechCorp Judge",
-        "company": "TechCorp",
-        "background": """A Senior Engineering Manager at TechCorp with 10 years of experience in cloud infrastructure. 
-        Values scalable architecture, clean code, and innovative solutions to enterprise problems. 
-        Has a strong focus on security and performance optimization.
-        Particularly interested in projects that could benefit large-scale enterprise systems.""",
+        "name": "RBC Judge",
+        "company": "Royal Bank of Canada",
+        "background": """A Senior Technology Risk Manager at RBC with 12 years of experience in financial technology.
+        Expert in regulatory compliance, secure banking systems, and financial infrastructure.
+        Values robust security measures, regulatory compliance, and scalable financial solutions.
+        Particularly interested in projects that demonstrate enterprise-grade security and financial innovation.""",
         "evaluation_bias": """Tends to favor:
-        - Enterprise-ready solutions
-        - Scalable architectures
-        - Security-first approaches
-        - Performance optimized solutions
-        - Clear documentation and clean code"""
+        - Bank-grade security implementations
+        - Regulatory compliance considerations
+        - Scalable financial solutions
+        - Risk-mitigated architectures
+        - Audit-friendly systems"""
     },
     {
-        "name": "StartupInc Judge",
-        "company": "StartupInc",
-        "background": """A Product Manager at StartupInc, a fast-growing startup unicorn.
-        Expert in rapid prototyping and MVP development.
-        Strongly believes in user-centric design and rapid iteration.
-        Looking for projects that solve real user problems in creative ways.""",
+        "name": "Google Judge",
+        "company": "Google",
+        "background": """A Senior Product Lead at Google with expertise in large-scale systems.
+        Specializes in building highly scalable, user-centric applications.
+        Champions accessibility, performance optimization, and data-driven decision making.
+        Particularly interested in projects that demonstrate innovative use of technology while maintaining simplicity.""",
         "evaluation_bias": """Tends to favor:
-        - User-focused solutions
-        - Quick MVP implementations
-        - Creative problem-solving
-        - Market potential
-        - Growth potential"""
+        - Highly scalable architectures
+        - User-centric design principles
+        - Data-driven solutions
+        - Performance-optimized implementations
+        - Cross-platform accessibility"""
     },
     {
-        "name": "DataAI Judge",
-        "company": "DataAI",
-        "background": """A Data Scientist at DataAI, specializing in machine learning and AI solutions.
-        Passionate about innovative applications of AI/ML.
-        Focuses on data-driven decision making and algorithmic efficiency.
-        Interested in projects that leverage AI/ML in novel ways.""",
+        "name": "1Password Judge",
+        "company": "1Password",
+        "background": """A Security Architect at 1Password specializing in privacy and security.
+        Expert in cryptography, secure system design, and user privacy protection.
+        Advocates for zero-knowledge architectures and end-to-end encryption.
+        Particularly interested in projects that prioritize user privacy and security without compromising usability.""",
         "evaluation_bias": """Tends to favor:
-        - AI/ML applications
-        - Data-driven approaches
-        - Algorithm efficiency
-        - Novel use of technology
-        - Ethical AI considerations"""
+        - Strong privacy-focused designs
+        - Zero-knowledge architectures
+        - End-to-end encryption
+        - Secure by default implementations
+        - Human-centric security"""
     }
 ]
 
 EVALUATION_RUBRIC = {
-    "technical_complexity": {
+    "practicality_and_impact": {
         "weight": 0.25,
-        "description": "Assessment of the technical sophistication and implementation quality"
+        "description": "Assessment of project feasibility and its potential real-world impact. Evaluates whether the solution is practical to implement and can create meaningful change."
     },
-    "innovation": {
-        "weight": 0.25,
-        "description": "Evaluation of the uniqueness and creativity of the solution"
+    "pitching": {
+        "weight": 0.15,
+        "description": "Evaluation of presentation clarity, organization, and effectiveness. Considers how well the team communicates their idea, demonstrates their solution, and handles Q&A."
     },
-    "practicality": {
+    "design": {
         "weight": 0.20,
-        "description": "Assessment of real-world applicability and feasibility"
+        "description": "Quality of user interface, user experience, visual aesthetics, and accessibility considerations. Assesses how intuitive, appealing, and inclusive the solution is."
     },
-    "presentation": {
-        "weight": 0.15,
-        "description": "Quality of pitch presentation and demo"
+    "completion": {
+        "weight": 0.25,
+        "description": "Level of functionality and polish in the final product. Evaluates working features, stability, and overall refinement of the implementation."
     },
-    "impact": {
+    "theme_and_originality": {
         "weight": 0.15,
-        "description": "Potential social or business impact of the solution"
+        "description": "Assessment of how well the project aligns with hackathon themes, its innovation, and uniqueness. Considers the creativity of the solution and its novelty in addressing the problem."
     }
 }
 
@@ -83,18 +83,18 @@ def get_judge_prompt_template(persona: Dict[str, str]) -> PromptTemplate:
         "Please provide your evaluation in JSON format with this exact structure:\n"
         "{{\n"
         '    "scores": {{\n'
-        '        "technical_complexity": 8.5,\n'
-        '        "innovation": 7.5,\n'
-        '        "practicality": 8.0,\n'
-        '        "presentation": 9.0,\n'
-        '        "impact": 8.0\n'
+        '        "practicality_and_impact": 8.5,\n'
+        '        "pitching": 7.5,\n'
+        '        "design": 8.0,\n'
+        '        "completion": 9.0,\n'
+        '        "theme_and_originality": 8.0\n'
         "    }},\n"
         '    "feedback": {{\n'
-        '        "technical_complexity": "Your detailed feedback here",\n'
-        '        "innovation": "Your detailed feedback here",\n'
-        '        "practicality": "Your detailed feedback here",\n'
-        '        "presentation": "Your detailed feedback here",\n'
-        '        "impact": "Your detailed feedback here"\n'
+        '        "practicality_and_impact": "Your detailed feedback here",\n'
+        '        "pitching": "Your detailed feedback here",\n'
+        '        "design": "Your detailed feedback here",\n'
+        '        "completion": "Your detailed feedback here",\n'
+        '        "theme_and_originality": "Your detailed feedback here"\n'
         "    }},\n"
         '    "overall_feedback": "Your overall perspective of the project",\n'
         '    "key_points": [\n'

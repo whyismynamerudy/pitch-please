@@ -6,6 +6,28 @@ from judges import JUDGE_PERSONAS, EVALUATION_RUBRIC
 from judge_consensus import JudgePanelModerator
 from judges import get_all_judge_chains
 
+def clean_json_string(text: str) -> str:
+    """Clean up a string that might contain JSON with markdown formatting."""
+    # Remove markdown code block if present
+    if "```" in text:
+        # Extract content between ```json and ```
+        lines = text.split('\n')
+        cleaned_lines = []
+        is_json_block = False
+        
+        for line in lines:
+            if line.strip().startswith("```"):
+                is_json_block = not is_json_block
+                continue
+            if is_json_block:
+                cleaned_lines.append(line)
+                
+        if cleaned_lines:
+            return '\n'.join(cleaned_lines)
+    
+    # If no markdown blocks found, return original text
+    return text
+
 @dataclass
 class InitialEvaluation:
     judge_name: str
@@ -110,9 +132,12 @@ class EnhancedEvaluator:
                 print(result_text)
                 print("-" * 40)
                 
-                # Parse the JSON response
+                # Clean and parse the JSON response
                 print(f"\n🔍 Parsing response from {judge_name}...")
-                parsed_result = json.loads(result_text)
+                cleaned_text = clean_json_string(result_text)
+                print(f"\n🧹 Cleaned JSON text:")
+                print(cleaned_text)
+                parsed_result = json.loads(cleaned_text)
                 
                 # Verify required fields
                 required_fields = {'scores', 'feedback', 'overall_feedback', 'key_points'}

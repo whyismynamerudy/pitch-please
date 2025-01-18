@@ -4,6 +4,28 @@ from typing import List, Dict, Any
 import json
 from dataclasses import asdict
 
+def clean_json_string(text: str) -> str:
+    """Clean up a string that might contain JSON with markdown formatting."""
+    # Remove markdown code block if present
+    if "```" in text:
+        # Extract content between ```json and ```
+        lines = text.split('\n')
+        cleaned_lines = []
+        is_json_block = False
+        
+        for line in lines:
+            if line.strip().startswith("```"):
+                is_json_block = not is_json_block
+                continue
+            if is_json_block:
+                cleaned_lines.append(line)
+                
+        if cleaned_lines:
+            return '\n'.join(cleaned_lines)
+    
+    # If no markdown blocks found, return original text
+    return text
+
 class ConsensusBuilder:
     def __init__(self, openai_api_key: str):
         print("\n🔧 Initializing ConsensusBuilder...")
@@ -45,15 +67,12 @@ Format your response as a JSON string with this exact structure:
     async def build_consensus(
         self,
         category: str,
-        initial_evaluations: List[Any]  # Changed type hint to Any to accept dataclass
+        initial_evaluations: List[Any]
     ) -> Dict[str, Any]:
         """Build consensus among judges for a specific category."""
         print(f"\n🎯 Building consensus for category: {category}")
         
-        # Format initial scores for discussion
         print("📊 Formatting initial scores...")
-        
-        # Convert dataclass instances to dictionaries and format scores
         initial_scores = "\n".join([
             f"{eval.judge_name}: {eval.scores[category]} - {eval.feedback[category]}"
             for eval in initial_evaluations
@@ -62,7 +81,6 @@ Format your response as a JSON string with this exact structure:
         print("\n📝 Initial scores and feedback:")
         print(initial_scores)
 
-        # Initialize discussion
         previous_discussion = ""
         round_count = 0
         max_rounds = 3
@@ -84,7 +102,12 @@ Format your response as a JSON string with this exact structure:
                 print("-" * 40)
                 
                 try:
-                    result = json.loads(response.content)
+                    # Clean the response text before parsing
+                    print("\n🧹 Cleaning consensus response...")
+                    cleaned_text = clean_json_string(response.content)
+                    print(f"\nCleaned text:\n{cleaned_text}")
+                    
+                    result = json.loads(cleaned_text)
                     print("✅ Successfully parsed consensus response")
                     
                     if 'consensus_score' in result:
@@ -97,10 +120,14 @@ Format your response as a JSON string with this exact structure:
                     
                 except json.JSONDecodeError as e:
                     print(f"❌ Error parsing consensus discussion: {str(e)}")
+                    print("Original text causing error:", cleaned_text)
                     break
                     
             except Exception as e:
                 print(f"❌ Error in consensus round: {str(e)}")
+                import traceback
+                print("\nFull traceback:")
+                traceback.print_exc()
                 break
                 
             round_count += 1
@@ -108,7 +135,6 @@ Format your response as a JSON string with this exact structure:
 
         if not final_consensus:
             print("⚠️ No consensus reached, calculating average score...")
-            # If no consensus reached, average the scores
             avg_score = sum(
                 eval.scores[category] for eval in initial_evaluations
             ) / len(initial_evaluations)
