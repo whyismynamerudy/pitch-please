@@ -219,7 +219,7 @@ decider_llm = ChatOpenAI(
     streaming=False,
 )
 
-DECIDER_SYSTEM_PROMPT = """You are a router that chooses which personality (Alice, Bob, or Charlie) is best suited to respond based on the user's message. Reply with only one name: "Alice", "Bob", or "Charlie" (nothing else)."""
+DECIDER_SYSTEM_PROMPT = """You are a router that chooses which personality is best suited to respond based on the user's message. Reply with only one name: (nothing else)."""
 
 async def decide_personality(user_text: str) -> str:
     messages = [
@@ -228,7 +228,7 @@ async def decide_personality(user_text: str) -> str:
     ]
     output = await decider_llm.agenerate([messages])
     text = output.generations[0][0].text.strip()
-    return text if text in PERSONALITY_NAMES else "Alice"
+    return text if text in PERSONALITY_NAMES else "UofT Judge"
 
 # -------------------------------------------------
 # NEW / UPDATED CODE

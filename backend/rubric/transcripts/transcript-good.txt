@@ -1,0 +1,31 @@
+User: Good morning, everyone. Imagine this: You're a university student juggling classes, work, and trying to maintain a social life, all while barely keeping your finances in check. Our team presents “BudgetBuddy,” a personalized budgeting app tailored specifically for students.
+
+BudgetBuddy isn’t just another budgeting tool—it’s an AI-driven financial assistant. Using LangChain and GPT-4, the app analyzes your spending patterns and income streams to provide customized saving strategies and budgeting plans. But here’s the twist: BudgetBuddy integrates directly with your academic calendar to help you anticipate costs tied to events like textbook purchases, exam fees, or social events, ensuring you're always prepared.
+
+Our app features three core functionalities: First, Smart Budgeting. BudgetBuddy uses machine learning to predict future expenses based on your habits and generates weekly spending reports. Second, Goal Tracking. Whether it’s saving up for a concert or reducing your food expenses, BudgetBuddy breaks your goal into achievable daily targets. And third, Real-Time Notifications. If you’re close to overspending in a category, BudgetBuddy gives you a heads-up to help you stay on track.
+
+Technically, we’re using Next.js for the front-end, Flask for the back-end API, and a Chroma vector database to store and retrieve user-specific spending data. To ensure security, all sensitive data is encrypted and stored locally on the user’s device. In just 36 hours, we developed a functional prototype that’s ready for live demos.
+
+But why BudgetBuddy? Financial literacy is a massive gap for students. According to a recent survey, over 70% of students struggle to manage their finances effectively. BudgetBuddy bridges this gap, helping students not just survive but thrive financially. Our vision doesn’t stop here. In the future, we aim to partner with banks and scholarship providers to offer students financial incentives and tailored guidance.
+
+Thank you for your time. We’re excited to answer your questions and show you how BudgetBuddy can empower students to take control of their finances.
+
+Judge 1: Thank you for the pitch. Can you elaborate on how the AI predicts spending habits? Are there specific data points you’re using?
+
+User: Great question! BudgetBuddy analyzes historical spending data, user input categories, and even external factors like upcoming academic deadlines. For instance, if a student has a history of overspending during exam weeks, the AI will flag it and suggest ways to adjust. We use clustering algorithms to group similar spending patterns and GPT-4 to interpret those patterns into actionable advice. The more data the app collects, the better its predictions become over time.
+
+Judge 2: How do you address privacy concerns, especially since you're using sensitive financial data?
+
+User: That’s a critical concern, and we’ve prioritized it from the start. All financial data is encrypted using AES-256 encryption and stored locally on the device. Nothing sensitive is uploaded to our servers. Additionally, we’ve implemented user-controlled permissions, so they decide what data to input and analyze. We’re also exploring partnerships with cybersecurity experts to further enhance our app’s safety.
+
+Judge 1: What’s your long-term plan for monetizing the app?
+
+User: Initially, BudgetBuddy will be free for students to encourage widespread adoption. Over time, we plan to introduce a premium version with advanced features like investment tracking and personalized financial coaching. Additionally, we envision partnerships with financial institutions, offering them an opportunity to advertise student-specific banking products directly within the app. These ads would be minimal and aligned with our goal of providing value to the users.
+
+Judge 2: Thanks for sharing! One last question—what was the biggest technical challenge your team faced, and how did you overcome it?
+
+User: The biggest challenge was ensuring real-time expense predictions while keeping the app lightweight for student devices. Initially, the app lagged when processing large datasets locally. To overcome this, we optimized our algorithms by offloading complex computations to edge processing, allowing faster results without compromising the user experience. It’s still a work in progress, but we’re proud of what we’ve achieved so far.
+
+Judge 1: Excellent work! Thanks for the pitch and answers.
+
+User: Thank you! We appreciate your feedback and the opportunity to share our project.
