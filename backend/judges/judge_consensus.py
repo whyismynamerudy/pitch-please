@@ -34,7 +34,7 @@ Format your response as a JSON string with this exact structure:
         print("🤖 Initializing ChatOpenAI for consensus...")
         self.llm = ChatOpenAI(
             api_key=openai_api_key,
-            model_name="gpt-4",
+            model_name="gpt-4o-mini",
             temperature=0.7
         )
         
