@@ -115,7 +115,7 @@ def get_judge_prompt_template(persona: Dict[str, str]) -> PromptTemplate:
 def create_judge_chain(
     persona: Dict[str, str],
     openai_api_key: str,
-    model_name: str = "gpt-4",
+    model_name: str = "gpt-4o-mini",
     temperature: float = 0.5
 ):
     """Creates a runnable sequence for a judge persona."""

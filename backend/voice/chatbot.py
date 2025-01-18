@@ -32,9 +32,9 @@ whisper_model = WhisperModel(
     compute_type="int8"
 )
 
-elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
+# elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
-# Load personalities first so we can use them throughout the code
+# Load personalities first
 personalities = get_personality_chains(OPENAI_API_KEY)
 PERSONALITY_NAMES = list(personalities.keys())
 
@@ -50,37 +50,41 @@ class NonStreamingCallbackHandler(BaseCallbackHandler):
 
     async def on_llm_new_token(self, token: str, **kwargs) -> None:
         self.complete_response.append(token)
-        print(token, end="", flush=True)
+        print(token, end="", flush=True)  # Keep printing as it streams
 
     async def on_llm_end(self, *args, **kwargs):
         pass
 
     def get_complete_response(self):
         full_response = ''.join(self.complete_response)
-        clean_response = full_response.replace('```', '').replace('SpeakWithEachOther: false', '').replace('SpeakWithEachOther: true', '').strip()
+        # Clean up any extraneous tokens
+        clean_response = full_response.replace('```', '').strip()
         return clean_response
 
-# -------------------------------------------------
-# Audio Generation
-# -------------------------------------------------
-async def generate_and_play_audio(text: str, voice_id: str):
-    try:
-        audio = elevenlabs_client.text_to_speech.convert(
-            text=text,
-            voice_id=voice_id,
-            model_id="eleven_monolingual_v1"
-        )
-        await asyncio.to_thread(play, audio)
-    except Exception as e:
-        print(f"\nTTS Error: {e}")
+# # -------------------------------------------------
+# # Audio Generation
+# # -------------------------------------------------
+# async def generate_and_play_audio(text: str, voice_id: str):
+#     try:
+#         audio = elevenlabs_client.text_to_speech.convert(
+#             text=text,
+#             voice_id=voice_id,
+#             model_id="eleven_flash_v2"
+#         )
+#         await asyncio.to_thread(play, audio)
+#     except Exception as e:
+#         print(f"\nTTS Error: {e}")
 
 # -------------------------------------------------
 # Response Generation
-# -------------------------------------------------
 async def get_response(personality_name, history, user_input):
+    """
+    Calls the personality's chain with (history, user_input).
+    Plays audio for each response immediately after generating it.
+    """
     personality_data = personalities.get(personality_name)
     if not personality_data:
-        return "Personality not found."
+        return 2, None, "Personality not found."
     
     chain = personality_data["chain"]
     voice_id = personality_data["voice_id"]
@@ -88,7 +92,7 @@ async def get_response(personality_name, history, user_input):
     handler = NonStreamingCallbackHandler()
     
     try:
-        # Get the complete response first
+        # Generate the full response text
         await chain.ainvoke(
             {
                 "history": history,
@@ -97,15 +101,18 @@ async def get_response(personality_name, history, user_input):
             config={"callbacks": [handler]}
         )
         
-        response = handler.get_complete_response()
-        
-        # Then generate and play the audio
-        await generate_and_play_audio(response, voice_id)
-        
-        return response
+        full_response = handler.get_complete_response()
+
+        # Parse the response to extract Route, Target, and Message
+        route, target, message = parse_personality_response(full_response)
+
+        # Play the message audio immediately
+        # await generate_and_play_audio(message, voice_id)
+
+        return route, target, message
     except Exception as e:
         print(f"Error in get_response: {e}")
-        return f"I apologize, but I encountered an error: {str(e)}"
+        return 2, None, f"I apologize, but I encountered an error: {str(e)}"
 
 # -------------------------------------------------
 # Audio Recording and Transcription
@@ -172,7 +179,7 @@ def transcribe_audio(audio_np):
     return " ".join(segment.text for segment in segments).strip()
 
 # -------------------------------------------------
-# Decider Chain
+# Decider Chain (for initial choice)
 # -------------------------------------------------
 decider_llm = ChatOpenAI(
     api_key=OPENAI_API_KEY,
@@ -193,6 +200,53 @@ async def decide_personality(user_text: str) -> str:
     return text if text in PERSONALITY_NAMES else "Alice"
 
 # -------------------------------------------------
+# NEW / UPDATED CODE
+# -------------------------------------------------
+def parse_personality_response(full_response: str):
+    """
+    Given a personality's full response text, 
+    parse out:
+      Route: (1 or 2)
+      Target: (only valid if Route=1)
+      Message: (actual text)
+
+    If parse fails, default to Route=2 (speak to user) 
+    and entire text as the message.
+    """
+    route = None
+    target = None
+    message = None
+
+    lines = [line.strip() for line in full_response.splitlines() if line.strip()]
+
+    # Simple approach: look for lines starting with "Route:", "Target:", "Message:"
+    for line in lines:
+        if line.lower().startswith("route:"):
+            # e.g. "Route: 1"
+            route_value = line.split(":", 1)[1].strip()
+            if route_value in ["1", "2"]:
+                route = int(route_value)
+        elif line.lower().startswith("target:"):
+            # e.g. "Target: Bob"
+            target = line.split(":", 1)[1].strip()
+        elif line.lower().startswith("message:"):
+            # everything after 'Message:' is the content
+            message = line.split(":", 1)[1].strip()
+    
+    # If we can't parse anything, fallback
+    if route not in [1, 2]:
+        route = 2  # default speak to user
+        message = full_response  # entire text
+    if route == 1 and not target:
+        # If it said route=1 but no target, fallback
+        route = 2
+    if not message:
+        # fallback to entire text
+        message = full_response
+    
+    return route, target, message
+
+# -------------------------------------------------
 # Main Chat Loop
 # -------------------------------------------------
 async def chat_loop():
@@ -203,22 +257,23 @@ async def chat_loop():
         input_trigger = input("\n Press Enter to speak or 'exit' to quit: ")
         if input_trigger.lower() in ["exit", "quit", "bye"]:
             print("Exiting chat. Goodbye!")
-            await generate_and_play_audio("Goodbye!", "JBFqnCBsd6RMkjVDRZzb")
+            # await generate_and_play_audio("Goodbye!", "JBFqnCBsd6RMkjVDRZzb")
             break
 
         audio_np = await asyncio.to_thread(record_audio)
         user_input = await transcribe_audio_async(audio_np)
-        audio_length = len(audio_np) / 16000  # Assuming the sample rate is 16000 Hz
+        audio_length = len(audio_np) / 16000  # Assuming 16kHz
         if not user_input:
             continue
         num_words = len(user_input.split())
         wpm = num_words / audio_length * 60
 
-        print(f"User: {user_input} [{wpm} wpm]")
+        print(f"User: {user_input} [{wpm:.1f} wpm]")
 
-        print(f"You said: {user_input}")
+        # Add user message to history
         chat_history.add_message(HumanMessage(content=user_input))
 
+        # Format conversation so far for the chain
         formatted_history = ""
         for message in chat_history.messages:
             if isinstance(message, HumanMessage):
@@ -226,6 +281,7 @@ async def chat_loop():
             elif isinstance(message, AIMessage):
                 formatted_history += f"Assistant: {message.content}\n"
 
+        # Check if user explicitly mentions a personality by name
         chosen_personality = None
         for p in PERSONALITY_NAMES:
             if p.lower() in user_input.lower():
@@ -233,11 +289,46 @@ async def chat_loop():
                 break
 
         if not chosen_personality:
+            # Use decider to figure out best initial personality
             chosen_personality = await decide_personality(user_input)
 
-        print(f"\n{chosen_personality}: ", end="", flush=True)
-        response = await get_response(chosen_personality, formatted_history, user_input)
-        chat_history.add_message(AIMessage(content=response))
+        print(f"\n[Routing to initial personality: {chosen_personality}]\n")
+
+        # Now we handle the multi-step routing among personalities
+        current_personality = chosen_personality
+        current_input = user_input
+        routing_iterations = 0
+        max_routing = 2  # in case they bounce back forever
+
+        while routing_iterations < max_routing:
+            routing_iterations += 1
+
+            print(f"\n{current_personality} responding...\n")
+            # Get that personality's response
+            route, target, message = await get_response(
+                personality_name=current_personality,
+                history=formatted_history,
+                user_input=current_input
+            )
+
+            # Add the message to chat history
+            chat_history.add_message(AIMessage(content=message))
+
+            if route == 2:
+                # The personality is speaking directly to the user
+                print(f"\n{current_personality} => User: {message}\n")
+                break
+            else:
+                # route == 1: pass the message to the target personality
+                if target not in PERSONALITY_NAMES:
+                    print(f"Unknown target personality '{target}'. Ending routing.")
+                    break
+                print(f"\n{current_personality} => {target}: {message}\n")
+
+                # Update for next iteration
+                current_personality = target
+                current_input = message
+
 
 if __name__ == "__main__":
     try:

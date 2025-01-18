@@ -1,10 +1,7 @@
 # personalities.py
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-from operator import itemgetter
-from langchain.schema.runnable import RunnablePassthrough
 
-# Define the personalities with their voice IDs
 PERSONALITIES = [
     {
         "name": "Alice",
@@ -22,27 +19,35 @@ PERSONALITIES = [
         "voice_id": "VR6AewLTigWG4xSOukaG"  # Arnold voice
     },
 ]
-
 def get_personality_chains(openai_api_key):
     chains = {}
+    
+    # Dynamically generate the list of personality descriptions for the prompt
+    personality_descriptions = "\n".join(
+        [f"- {p['name']}: {p['description']}" for p in PERSONALITIES]
+    )
+    
     for personality in PERSONALITIES:
+        # Create a dynamic prompt template
         prompt = PromptTemplate(
-            input_variables=["history", "user_input"],
+            input_variables=["user_input"],
             template=(
-                f"You are {personality['name']}, {personality['description']}. "
-                f"You are one of three personalities: Alice, Bob, and Charlie.\n\n"
-                
-                "You can either respond directly to the user or speak among yourselves.\n"
-                "If speaking to the user, respond naturally without any formatting or tags.\n"
-                "If speaking among yourselves, simply start each line with the speaker's name followed by a colon.\n\n"
-                
-                "Current conversation:\n"
-                "{history}\n"
-                "User: {user_input}\n"
+                f"You are {personality['name']}, {personality['description']}.\n\n"
+                "The following are the personalities you can interact with:\n"
+                f"{personality_descriptions}\n\n"
+                "You can speak to the user (Route=2) OR you can speak to another AI personality (Route=1).\n"
+                "If you choose Route=1, also specify which personality you want to speak to in 'Target'.\n"
+                "If you choose Route=2, you are speaking directly to the user (this ends your chain of passing).\n\n"
+                "Your response MUST follow this exact format (no extra text):\n"
+                "Route: X\n"
+                "Target: (only needed if X=1)\n"
+                "Message: <your text here>\n\n"
+                "User: {user_input}\n\n"
                 f"{personality['name']}: "
             ),
         )
-        
+
+        # Create an LLM chain for each personality
         llm = ChatOpenAI(
             api_key=openai_api_key,
             model_name="gpt-4o-mini",
@@ -55,4 +60,6 @@ def get_personality_chains(openai_api_key):
             "chain": chain,
             "voice_id": personality["voice_id"]
         }
+    
     return chains
+
