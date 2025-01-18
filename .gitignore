@@ -1,3 +1,5 @@
 .venv/
+venv
 .env
-/Users/ayang/Projects/pitch-please/backend/voice/__pycache__/
+backend/voice/__pycache__/
+*.wav
