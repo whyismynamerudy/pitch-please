@@ -10,7 +10,12 @@ websockets
 langchain-openai
 elevenlabs
 torch
+<<<<<<< HEAD
 opencv-python-headless
 deepface
 tf-keras
 langchain-community
+=======
+faster_whisper
+numpy
+>>>>>>> add-wpm
