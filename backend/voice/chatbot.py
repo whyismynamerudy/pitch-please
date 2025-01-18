@@ -1,3 +1,5 @@
+# chatbot.py
+
 import os
 import asyncio
 import numpy as np
@@ -5,12 +7,14 @@ import collections
 from dotenv import load_dotenv
 from personalities import get_personality_chains
 from langchain_openai import ChatOpenAI
-from elevenlabs import ElevenLabs, play
+from elevenlabs import ElevenLabs, stream
 import pyaudio
 from faster_whisper import WhisperModel
 import concurrent.futures  
 from langchain.schema import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
+from io import BytesIO
+import wave
 from langchain.callbacks.base import BaseCallbackHandler
 
 # Load environment variables
@@ -24,7 +28,7 @@ if not ELEVENLABS_API_KEY:
     raise ValueError("ELEVENLABS_API_KEY not found in .env file.")
 
 # -------------------------------------------------
-# Initialize Models
+# Initialize Whisper Model
 # -------------------------------------------------
 whisper_model = WhisperModel(
     "small.en",
@@ -32,51 +36,69 @@ whisper_model = WhisperModel(
     compute_type="int8"
 )
 
+# -------------------------------------------------
+# Initialize ElevenLabs for TTS
+# -------------------------------------------------
 elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
-# Load personalities first so we can use them throughout the code
-personalities = get_personality_chains(OPENAI_API_KEY)
-PERSONALITY_NAMES = list(personalities.keys())
+# -------------------------------------------------
+# Custom Streaming Handler
+# -------------------------------------------------
 
-# -------------------------------------------------
-# Custom Non-Streaming Handler
-# -------------------------------------------------
-class NonStreamingCallbackHandler(BaseCallbackHandler):
-    def __init__(self):
+class StreamingCallbackHandler(BaseCallbackHandler):
+    def __init__(self, elevenlabs_client, voice_id):
+        self.elevenlabs_client = elevenlabs_client
+        self.voice_id = voice_id
+        self.buffer = ""
         self.complete_response = []
+        self.current_sentence = []
         
     async def on_llm_start(self, *args, **kwargs):
         pass
 
     async def on_llm_new_token(self, token: str, **kwargs) -> None:
+        self.current_sentence.append(token)
         self.complete_response.append(token)
         print(token, end="", flush=True)
+        
+        if any(punct in token for punct in ['.', '!', '?', '\n']):
+            sentence = ''.join(self.current_sentence)
+            if sentence.strip():
+                try:
+                    # Clean up any formatting markers
+                    clean_text = sentence.strip().replace('```', '').replace('SpeakWithEachOther: false', '').replace('SpeakWithEachOther: true', '').strip()
+                    if clean_text:
+                        audio_stream = self.elevenlabs_client.text_to_speech.convert_as_stream(
+                            text=clean_text,
+                            voice_id=self.voice_id,
+                            model_id="eleven_monolingual_v1"
+                        )
+                        await asyncio.to_thread(stream, audio_stream)
+                except Exception as e:
+                    print(f"\nTTS Error: {e}")
+            self.current_sentence = []
 
     async def on_llm_end(self, *args, **kwargs):
-        pass
+        remaining_text = ''.join(self.current_sentence).strip()
+        if remaining_text:
+            try:
+                clean_text = remaining_text.replace('```', '').replace('SpeakWithEachOther: false', '').replace('SpeakWithEachOther: true', '').strip()
+                if clean_text:
+                    audio_stream = self.elevenlabs_client.text_to_speech.convert_as_stream(
+                        text=clean_text,
+                        voice_id=self.voice_id,
+                        model_id="eleven_monolingual_v1"
+                    )
+                    await asyncio.to_thread(stream, audio_stream)
+            except Exception as e:
+                print(f"\nTTS Error: {e}")
 
     def get_complete_response(self):
         full_response = ''.join(self.complete_response)
+        # Clean up formatting markers from the complete response
         clean_response = full_response.replace('```', '').replace('SpeakWithEachOther: false', '').replace('SpeakWithEachOther: true', '').strip()
         return clean_response
 
-# -------------------------------------------------
-# Audio Generation
-# -------------------------------------------------
-async def generate_and_play_audio(text: str, voice_id: str):
-    try:
-        audio = elevenlabs_client.text_to_speech.convert(
-            text=text,
-            voice_id=voice_id,
-            model_id="eleven_monolingual_v1"
-        )
-        await asyncio.to_thread(play, audio)
-    except Exception as e:
-        print(f"\nTTS Error: {e}")
-
-# -------------------------------------------------
-# Response Generation
-# -------------------------------------------------
 async def get_response(personality_name, history, user_input):
     personality_data = personalities.get(personality_name)
     if not personality_data:
@@ -85,27 +107,48 @@ async def get_response(personality_name, history, user_input):
     chain = personality_data["chain"]
     voice_id = personality_data["voice_id"]
     
-    handler = NonStreamingCallbackHandler()
+    streaming_handler = StreamingCallbackHandler(elevenlabs_client, voice_id)
     
     try:
-        # Get the complete response first
         await chain.ainvoke(
             {
                 "history": history,
                 "user_input": user_input
             },
-            config={"callbacks": [handler]}
+            config={"callbacks": [streaming_handler]}
         )
         
-        response = handler.get_complete_response()
-        
-        # Then generate and play the audio
-        await generate_and_play_audio(response, voice_id)
-        
-        return response
+        return streaming_handler.get_complete_response()
     except Exception as e:
         print(f"Error in get_response: {e}")
         return f"I apologize, but I encountered an error: {str(e)}"
+
+# -------------------------------------------------
+# Load Personalities
+# -------------------------------------------------
+personalities = get_personality_chains(OPENAI_API_KEY)
+PERSONALITY_NAMES = list(personalities.keys())
+
+# -------------------------------------------------
+# Decider Chain
+# -------------------------------------------------
+decider_llm = ChatOpenAI(
+    api_key=OPENAI_API_KEY,
+    model_name="gpt-4o-mini",
+    temperature=0.0,
+    streaming=False,
+)
+
+DECIDER_SYSTEM_PROMPT = """You are a router that chooses which personality (Alice, Bob, or Charlie) is best suited to respond based on the user's message. Reply with only one name: "Alice", "Bob", or "Charlie" (nothing else)."""
+
+async def decide_personality(user_text: str) -> str:
+    messages = [
+        {"role": "system", "content": DECIDER_SYSTEM_PROMPT},
+        {"role": "user", "content": user_text},
+    ]
+    output = await decider_llm.agenerate([messages])
+    text = output.generations[0][0].text.strip()
+    return text if text in PERSONALITY_NAMES else "Alice"
 
 # -------------------------------------------------
 # Audio Recording and Transcription
@@ -172,49 +215,76 @@ def transcribe_audio(audio_np):
     return " ".join(segment.text for segment in segments).strip()
 
 # -------------------------------------------------
-# Decider Chain
+# Response Generation
 # -------------------------------------------------
-decider_llm = ChatOpenAI(
-    api_key=OPENAI_API_KEY,
-    model_name="gpt-4o-mini",
-    temperature=0.0,
-    streaming=False,
-)
+# async def get_response(personality_name, history, user_input):
+#     chain = personalities.get(personality_name)
+#     if not chain:
+#         return "Personality not found."
+    
+#     streaming_handler = StreamingCallbackHandler(elevenlabs_client)
+    
+#     try:
+#         await chain.ainvoke(
+#             {
+#                 "history": history,
+#                 "user_input": user_input
+#             },
+#             config={"callbacks": [streaming_handler]}
+#         )
+        
+#         # Return the complete response
+#         return streaming_handler.get_complete_response()
+#     except Exception as e:
+#         print(f"Error in get_response: {e}")
+#         return f"I apologize, but I encountered an error: {str(e)}"
 
-DECIDER_SYSTEM_PROMPT = """You are a router that chooses which personality (Alice, Bob, or Charlie) is best suited to respond based on the user's message. Reply with only one name: "Alice", "Bob", or "Charlie" (nothing else)."""
+def parse_speak_with_each_other(response_text):
+    parsed_output = {
+        "speak_with_each_other": False,
+        "lines": []
+    }
 
-async def decide_personality(user_text: str) -> str:
-    messages = [
-        {"role": "system", "content": DECIDER_SYSTEM_PROMPT},
-        {"role": "user", "content": user_text},
-    ]
-    output = await decider_llm.agenerate([messages])
-    text = output.generations[0][0].text.strip()
-    return text if text in PERSONALITY_NAMES else "Alice"
+    if "SpeakWithEachOther: true" in response_text:
+        parsed_output["speak_with_each_other"] = True
+        try:
+            lines = response_text.splitlines()
+            flag_index = next(i for i, line in enumerate(lines) if "SpeakWithEachOther: true" in line)
+            for line in lines[flag_index + 1:]:
+                line = line.strip()
+                if any(line.startswith(p + ":") for p in PERSONALITY_NAMES):
+                    speaker, content = line.split(":", 1)
+                    parsed_output["lines"].append((speaker.strip(), content.strip()))
+        except StopIteration:
+            parsed_output["lines"] = [("UserDirected", response_text)]
+    else:
+        parsed_output["lines"] = [("UserDirected", response_text)]
+
+    return parsed_output
 
 # -------------------------------------------------
 # Main Chat Loop
 # -------------------------------------------------
 async def chat_loop():
     chat_history = ChatMessageHistory()
-    print("\n Chatbot is ready. Press Enter to speak. Type 'exit' to quit.")
+    print("Chatbot is ready. Press Enter to speak. Type 'exit' to quit.")
 
     while True:
-        input_trigger = input("\n Press Enter to speak or 'exit' to quit: ")
+        input_trigger = input("Press Enter to speak or 'exit' to quit: ")
         if input_trigger.lower() in ["exit", "quit", "bye"]:
             print("Exiting chat. Goodbye!")
-            await generate_and_play_audio("Goodbye!", "JBFqnCBsd6RMkjVDRZzb")
+            audio_stream = elevenlabs_client.text_to_speech.convert_as_stream(
+                text="Goodbye!",
+                voice_id="JBFqnCBsd6RMkjVDRZzb",
+                model_id="eleven_monolingual_v1"
+            )
+            stream(audio_stream)
             break
 
         audio_np = await asyncio.to_thread(record_audio)
         user_input = await transcribe_audio_async(audio_np)
-        audio_length = len(audio_np) / 16000  # Assuming the sample rate is 16000 Hz
         if not user_input:
             continue
-        num_words = len(user_input.split())
-        wpm = num_words / audio_length * 60
-
-        print(f"User: {user_input} [{wpm} wpm]")
 
         print(f"You said: {user_input}")
         chat_history.add_message(HumanMessage(content=user_input))
