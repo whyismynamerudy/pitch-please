@@ -97,14 +97,14 @@ export default function PitchPage() {
               {['images/rbc.png', 'images/google.png', 'images/password.png'].map((img, index) => (
                 <div
                   key={index}
-                  className="w-24 h-24 rounded-full overflow-hidden relative hover:ring-2 hover:ring-green-500 transition-all bg-white p-2"
+                  className="w-36 h-36 rounded-full overflow-hidden relative hover:ring-2 hover:ring-green-500 transition-all bg-white p-2"
                 >
                   <Image
                     src={`/${img}`}
                     alt={img.split('/').pop()?.split('.')[0] || ''}
                     fill
                     style={{ objectFit: 'contain' }}
-                    className="p-2"
+              
                   />
                 </div>
               ))}
