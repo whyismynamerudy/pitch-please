@@ -1,0 +1,12 @@
+langchain
+openai
+python-dotenv
+pyaudio
+SpeechRecognition
+pyttsx3
+asyncio
+aiohttp
+websockets
+langchain-openai
+elevenlabs
+torch
