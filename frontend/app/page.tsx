@@ -27,7 +27,7 @@ export default function Home() {
           <h1 className="text-white text-4xl md:text-6xl font-bold mb-4">
             Who&apos;s the best judge of your pitch?
           </h1>
-          <h2 className="text-4xl md:text-6xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500">
+          <h2 className="text-4xl md:text-6xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500">
             Pitch Please.
           </h2>
         </div>
