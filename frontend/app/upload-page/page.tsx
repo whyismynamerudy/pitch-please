@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useRouter } from 'next/navigation'
 
 export default function UploadPage() {
+  const router = useRouter()
+
+  const handleSubmit = () => {
+    router.push('/pitch-page')
+  }
+
   return (
     <div className="min-h-screen relative" style={{ background: 'rgb(22, 14, 34)' }}>
       {/* Background Beams */}
@@ -61,6 +68,7 @@ export default function UploadPage() {
               </div>
               {/* Submit Button */}
               <Button
+                onClick={handleSubmit}
                 className="w-full bg-gradient-to-r from-[#6366f1] to-[#4f46e5] hover:opacity-90 transition-opacity text-white text-lg font-medium"
               >
                 Submit
