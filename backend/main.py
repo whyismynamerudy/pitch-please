@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, UploadFile, HTTPException
 from rubric.rubric_to_json import rubric_to_json
 from voice.chatbot import chat_loop
 import json
@@ -26,9 +26,12 @@ async def upload_info(rubric: UploadFile, sponsor_list: list[str]):
     rubric: an image file of the rubric
     sponsor_list: a list of sponsors you wish to be considered for
     """
-    # save rubric as png
-    with open("rubric.png", "wb") as f:
-        f.write(rubric.file.read())
+    if not rubric or not sponsor_list:
+        raise HTTPException(status_code=400, detail="rubric and sponsor_list must be provided")
+
+    # # save rubric as png
+    # with open("rubric.png", "wb") as f:
+    #     f.write(rubric.file.read())
 
     # convert rubric to json
     json_rubric = rubric_to_json("rubric.png")
@@ -51,19 +54,19 @@ async def upload_info(rubric: UploadFile, sponsor_list: list[str]):
 #     }
 
 # start live pitch
-@app.get("/live_pitch")
-async def live_pitch():
-    """
-    live_pitch: start a live pitch session
+# @app.get("/live_pitch")
+# async def live_pitch():
+#     """
+#     live_pitch: start a live pitch session
 
-    this starts a chatbot session meant to simulate a live pitch session. judges may interrupt if there is a long enough pause.
-    this is async - the function will return when the pitch is over.
-    """
-    # TODO: transcript and pitch stats have not been implemented yet
-    transcript = await chat_loop()
+#     this starts a chatbot session meant to simulate a live pitch session. judges may interrupt if there is a long enough pause.
+#     this is async - the function will return when the pitch is over.
+#     """
+#     # TODO: transcript and pitch stats have not been implemented yet
+#     transcript = await chat_loop()
     
-    with open("transcript.txt", "w") as f:
-        f.write(transcript)
+#     with open("transcript.txt", "w") as f:
+#         f.write(transcript)
 
 # get pitch feedback: aggregated data based on the pitch and q&a
 @app.get("/feedback")
@@ -82,13 +85,13 @@ async def feedback():
     # load rubric
     with open("rubric.json", "r") as f:
         rubric = json.load(f)
-        # just taking criterion for now, but the rubric has other info (eg. description of criterion, and the weight)
-        rubric_categories = [x["criterion"] for x in rubric]
 
     # take transcript as pitch details
     with open("transcript.txt", "r") as f:
         pitch_details = f.read()
 
-    feedback = evaluator.evaluate_project(pitch_details, rubric_categories)
+    feedback = await evaluator.evaluate_project(pitch_details, rubric)
+
+    print(feedback)
 
     return feedback

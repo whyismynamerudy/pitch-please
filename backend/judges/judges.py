@@ -7,19 +7,19 @@ import json
 SPONSOR_RUBRICS = {
     "rbc_challenge": {
         "cyber_security": {
-            "weight": 0.35,
+            "weight": 4,
             "description": "Effectiveness of cyber threat prevention measures for young banking customers. Evaluates the robustness of security features and protection against common cyber threats."
         },
         "student_focus": {
-            "weight": 0.25,
+            "weight": 3,
             "description": "Relevance and appeal to student banking needs. Assesses how well the solution addresses specific financial challenges faced by students."
         },
         "implementation_feasibility": {
-            "weight": 0.25,
+            "weight": 3,
             "description": "Technical feasibility of integration with banking systems. Evaluates the practicality of implementing the solution within existing banking infrastructure."
         },
         "regulatory_compliance": {
-            "weight": 0.15,
+            "weight": 2,
             "description": "Adherence to banking regulations and security standards. Assesses compliance with financial regulations and data protection requirements."
         }
     }
@@ -78,23 +78,23 @@ JUDGE_PERSONAS = [
 # Main hackathon rubric
 EVALUATION_RUBRIC = {
     "practicality_and_impact": {
-        "weight": 0.25,
+        "weight": 5,
         "description": "Assessment of project feasibility and its potential real-world impact. Evaluates whether the solution is practical to implement and can create meaningful change."
     },
     "pitching": {
-        "weight": 0.15,
+        "weight": 2,
         "description": "Evaluation of presentation clarity, organization, and effectiveness. Considers how well the team communicates their idea, demonstrates their solution, and handles Q&A."
     },
     "design": {
-        "weight": 0.20,
+        "weight": 4,
         "description": "Quality of user interface, user experience, visual aesthetics, and accessibility considerations. Assesses how intuitive, appealing, and inclusive the solution is."
     },
     "completion": {
-        "weight": 0.25,
+        "weight": 5,
         "description": "Level of functionality and polish in the final product. Evaluates working features, stability, and overall refinement of the implementation."
     },
     "theme_and_originality": {
-        "weight": 0.15,
+        "weight": 3,
         "description": "Assessment of how well the project aligns with hackathon themes, its innovation, and uniqueness. Considers the creativity of the solution and its novelty in addressing the problem."
     }
 }

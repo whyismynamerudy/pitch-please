@@ -13,11 +13,17 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 gpt_prompt = """Your task is to interpret the following text and convert it into JSON format. The format should be as follows:
-[
-    {"criterion": "Criterion 1", "description": "Description of Criterion 1", "max_score": 10},
-    {"criterion": "Criterion 2", "description": "Description of Criterion 2", "max_score": 4},
+{
+    "criterion 1": {
+        "weight": 10,
+        "description": "Description of Criterion 1"
+    },
+    "criterion 2": {
+        "weight": 4,
+        "description": "Description of Criterion 2"
+    },
     ...
-]
+}
 
 Each criterion will be marked from 1 to the maximum score specified. Note that each criterion should be a distinct category
 from each of the other ones. If multiple criterion appear to be judging the same thing, please combine them into a single

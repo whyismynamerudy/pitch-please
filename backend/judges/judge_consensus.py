@@ -3,7 +3,7 @@ from langchain_openai import ChatOpenAI
 from typing import List, Dict, Any
 import json
 from dataclasses import asdict
-from judges import EVALUATION_RUBRIC, SPONSOR_RUBRICS
+from .judges import EVALUATION_RUBRIC, SPONSOR_RUBRICS
 
 def clean_json_string(text: str) -> str:
     """Clean up a string that might contain JSON with markdown formatting."""

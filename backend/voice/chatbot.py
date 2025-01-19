@@ -8,7 +8,7 @@ import asyncio
 import numpy as np
 import collections
 from dotenv import load_dotenv
-from personalities import get_personality_chains
+from .personalities import get_personality_chains
 from langchain_openai import ChatOpenAI
 from elevenlabs import ElevenLabs, play
 import pyaudio

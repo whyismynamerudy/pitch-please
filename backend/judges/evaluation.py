@@ -2,9 +2,9 @@ from dataclasses import dataclass, asdict
 import json
 from typing import Dict, List, Any, Optional
 import asyncio
-from judges import JUDGE_PERSONAS, EVALUATION_RUBRIC, SPONSOR_RUBRICS
-from judge_consensus import JudgePanelModerator
-from judges import get_all_judge_chains
+from .judges import JUDGE_PERSONAS, EVALUATION_RUBRIC, SPONSOR_RUBRICS
+from .judge_consensus import JudgePanelModerator
+from .judges import get_all_judge_chains
 
 def clean_json_string(text: str) -> str:
     """Clean up a string that might contain JSON with markdown formatting."""
@@ -66,7 +66,7 @@ class EnhancedEvaluator:
     async def evaluate_project(
         self,
         pitch_details: str,
-        rubric_categories: List[str]
+        rubric: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Complete evaluation process including individual judgments, consensus building, and sponsor challenges."""
         print("\n🔄 Starting project evaluation process...")
@@ -75,7 +75,7 @@ class EnhancedEvaluator:
         print("\n👥 Gathering initial evaluations from judges...")
         initial_evaluations = await self._gather_initial_evaluations(
             pitch_details,
-            rubric_categories
+            rubric
         )
         
         if not initial_evaluations:
@@ -88,7 +88,7 @@ class EnhancedEvaluator:
         print("\n🤝 Starting consensus building process...")
         consensus = await self.panel_moderator.moderate_panel_discussion(
             initial_evaluations,
-            rubric_categories
+            rubric.keys()
         )
         print("✅ Consensus building completed")
         
@@ -102,7 +102,7 @@ class EnhancedEvaluator:
     async def _gather_initial_evaluations(
         self,
         pitch_details: str,
-        rubric_categories: List[str]
+        rubric: Dict[str, Any]
     ) -> List[InitialEvaluation]:
         """Gather initial evaluations from all judges."""
         evaluation_tasks = []
@@ -110,9 +110,9 @@ class EnhancedEvaluator:
         # Format main rubric as a detailed string
         main_rubric_str = "Main Evaluation Criteria:\n" + "\n".join([
             f"{category}:\n"
-            f"- Description: {EVALUATION_RUBRIC[category]['description']}\n"
-            f"- Weight: {EVALUATION_RUBRIC[category]['weight']}"
-            for category in rubric_categories
+            f"- Description: {rubric[category]['description']}\n"
+            f"- Weight: {rubric[category]['weight']}"
+            for category in rubric
         ])
         
         # Format sponsor rubrics
