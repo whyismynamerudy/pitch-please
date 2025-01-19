@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function PitchPage() {
   const [time, setTime] = useState(300);
@@ -114,14 +115,32 @@ export default function PitchPage() {
   return (
     <div className="min-h-screen bg-[#14121f]">
       <div className="max-w-[1400px] mx-auto px-8">
-        <nav className="py-6">
-          <a href="/" className="text-white text-xl font-medium">Home</a>
+         {/* Updated Navbar */}
+         <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
+          <Link href="/">
+            <Image 
+              src="/images/logopitch.png"
+              alt="Logo"
+              width={180}
+              height={40}
+              className="hover:opacity-90 transition-opacity"
+            />
+          </Link>
+          <div className="border border-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500 rounded-lg p-[1px]">
+            <div className="bg-[rgb(40,40,45)] rounded-lg px-6 py-3">
+              <a href="/" className="text-white text-xl font-medium hover:opacity-80 transition-opacity">
+                Home
+              </a>
+            </div>
+          </div>
         </nav>
+        <br></br>
+        <br></br>
 
-        <h1 className="text-6xl font-bold bg-gradient-to-r from-[#6366f1] to-[#4f46e5]
-                       bg-clip-text text-transparent mb-8">
+        <h1 className="text-5xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500">
           Pitch
         </h1>
+        <br></br>
 
         <div className="flex gap-8">
           <div className="flex-1">
@@ -193,8 +212,9 @@ export default function PitchPage() {
 
           {/* Transcript */}
           <div className="flex-1">
-            <h2 className="text-xl font-semibold text-white mb-2">Transcript</h2>
-            <div className="bg-[#1c1b2b] p-4 rounded-md min-h-[300px] overflow-y-auto text-white">
+            <br></br>
+            <h2 className="text-2xl font-semibold text-white mb-2">Transcript</h2>
+            <div className="bg-[#1c1b2b] p-4 rounded-md h-[300px] overflow-y-auto text-white">
               {transcript.map((entry, i) => (
                 <div key={i} className="mb-2">
                   <strong>{entry.speaker}:</strong> {entry.text}

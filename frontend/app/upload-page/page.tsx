@@ -8,11 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
+import { FileUpload } from "@/components/ui/file-upload"
+import { useState } from "react"
 
 export default function UploadPage() {
   const router = useRouter()
+  const [files, setFiles] = useState<File[]>([])
 
   const handleSubmit = () => {
+    console.log('Files to upload:', files)
     router.push('/pitch-page')
   }
 
@@ -59,13 +63,12 @@ export default function UploadPage() {
                 <Label htmlFor="rubric" className="text-gray-200 text-lg">
                   Rubric
                 </Label>
-                <div className="relative">
-                  <input
-                    id="rubric"
-                    type="file"
-                    className="block w-full text-white file:bg-[#2a2937] file:text-white file:px-4 file:py-2 file:rounded-md file:cursor-pointer"
-                  />
-                </div>
+                <FileUpload
+                  onChange={(files) => {
+                    setFiles(files)
+                    console.log('Files changed:', files)
+                  }}
+                />
               </div>
               {/* Sponsors Section */}
               <div className="space-y-3">
