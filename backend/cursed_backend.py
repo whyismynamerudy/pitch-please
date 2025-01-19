@@ -200,11 +200,10 @@ def create_transcript_json(transcript_data: list, wpm: float, time_spent: str, e
         return None
         
     return data
-
 @app.post("/generate_analysis")
 async def generate_analysis(data: TimerData):
     """
-    Generate pitch evaluation using:
+    Generate analysis JSON using:
     - Transcript from frontend
     - Emotions from emotion_data.json
     - Time spent calculated from frontend timer
@@ -216,41 +215,55 @@ async def generate_analysis(data: TimerData):
         
         # Hardcoded WPM
         wpm = 150.0
-
-        # Read emotion data if it exists
+        
+        # Read emotion data if exists
         emotion_data = None
         try:
             with open("emotion_data.json", "r") as f:
                 emotion_data = json.load(f)
         except FileNotFoundError:
-            print("No emotion data found, proceeding with empty emotions.")
-
-        # Format transcript into a single string
+            print("No emotion data found")
+        
+        # Generate analysis JSON (unchanged functionality)
+        result = create_transcript_json(
+            transcript_data=data.transcript,
+            wpm=wpm,
+            time_spent=time_spent,
+            emotion_data=emotion_data
+        )
+        
+        # Create a PitchEvaluation object
         transcript_text = "\n".join([f"{entry['speaker']}: {entry['text']}" for entry in data.transcript])
-
-        # Create PitchEvaluation object
         pitch_evaluation = PitchEvaluation(
             transcript=transcript_text,
             wpm=wpm,
             time=time_spent,
             emotions=emotion_data or {}
         )
-
-        # Evaluate the pitch
+        
+        # Send PitchEvaluation object to evaluate_pitch function
         evaluation_response = await evaluate_pitch(pitch_evaluation)
-
-        # Print the evaluation results in the terminal
-        print("Evaluation Response:", evaluation_response.json(indent=4))
-
-        # Return the evaluation results to the frontend
-        return evaluation_response
-
+        
+        # Print the evaluation response in the terminal
+        print("Pitch Evaluation Response:")
+        print(evaluation_response.json(indent=4))
+        
+        # Return the original analysis result along with evaluation response
+        if result:
+            return JSONResponse(content={
+                "analysis_result": result,
+                "evaluation_response": evaluation_response.json()
+            })
+        else:
+            return JSONResponse(
+                content={"error": "Failed to generate analysis"},
+                status_code=500
+            )
     except Exception as e:
         return JSONResponse(
             content={"error": str(e)},
             status_code=500
         )
-
     
 @app.get("/stop")
 async def stop_all():
@@ -515,7 +528,6 @@ async def evaluate_pitch(data: PitchEvaluation):
                 "error_type": type(e).__name__
             }
         )
-
 
 
 if __name__ == "__main__":
