@@ -1,0 +1,131 @@
+{
+  "technical_innovation": {
+    "weight": 0.3,
+    "description": "Evaluation of technical innovation and differentiation",
+    "subcriteria": {
+      "core_technology": {
+        "weight": 0.4,
+        "description": "Assessment of the fundamental technology",
+        "evaluation_points": [
+          "Novel technical approach",
+          "Technical complexity",
+          "Implementation feasibility"
+        ]
+      },
+      "product_differentiation": {
+        "weight": 0.3,
+        "description": "How the product stands out in the market",
+        "evaluation_points": [
+          "Unique features compared to competitors",
+          "User experience enhancements",
+          "Intellectual property protections"
+        ]
+      },
+      "market_trends": {
+        "weight": 0.3,
+        "description": "Alignment with current and future market trends",
+        "evaluation_points": [
+          "Relevance to emerging technologies",
+          "Adaptability to market changes",
+          "Potential for scalability"
+        ]
+      }
+    }
+  },
+  "market_potential": {
+    "weight": 0.25,
+    "description": "Assessment of the market opportunity and growth potential",
+    "subcriteria": {
+      "market_size": {
+        "weight": 0.5,
+        "description": "Evaluation of the total addressable market (TAM)",
+        "evaluation_points": [
+          "Current market size",
+          "Projected growth rates",
+          "Market segmentation analysis"
+        ]
+      },
+      "competitive_landscape": {
+        "weight": 0.5,
+        "description": "Analysis of competitors and market positioning",
+        "evaluation_points": [
+          "Number and strength of competitors",
+          "Market share distribution",
+          "Barriers to entry for new competitors"
+        ]
+      }
+    }
+  },
+  "team_expertise": {
+    "weight": 0.2,
+    "description": "Evaluation of the founding team and their capabilities",
+    "subcriteria": {
+      "founder_background": {
+        "weight": 0.5,
+        "description": "Assessment of the founders' experience and track record",
+        "evaluation_points": [
+          "Previous startup successes",
+          "Industry expertise",
+          "Relevant technical skills"
+        ]
+      },
+      "team_composition": {
+        "weight": 0.5,
+        "description": "Evaluation of the team's overall skill set and dynamics",
+        "evaluation_points": [
+          "Diversity of skills and experiences",
+          "Team cohesion and collaboration",
+          "Advisory board and mentorship"
+        ]
+      }
+    }
+  },
+  "financial_metrics": {
+    "weight": 0.15,
+    "description": "Analysis of financial health and projections",
+    "subcriteria": {
+      "revenue_model": {
+        "weight": 0.5,
+        "description": "Evaluation of the business model and revenue streams",
+        "evaluation_points": [
+          "Clarity and sustainability of revenue model",
+          "Pricing strategy",
+          "Customer acquisition cost vs. lifetime value"
+        ]
+      },
+      "financial_projections": {
+        "weight": 0.5,
+        "description": "Assessment of financial forecasts and assumptions",
+        "evaluation_points": [
+          "Realism of financial projections",
+          "Assumptions behind growth rates",
+          "Funding requirements and use of funds"
+        ]
+      }
+    }
+  },
+  "exit_potential": {
+    "weight": 0.1,
+    "description": "Evaluation of potential exit strategies and returns",
+    "subcriteria": {
+      "exit_options": {
+        "weight": 0.5,
+        "description": "Analysis of possible exit strategies",
+        "evaluation_points": [
+          "Likelihood of acquisition by larger firms",
+          "Potential for IPO",
+          "Strategic partnerships and alliances"
+        ]
+      },
+      "return_on_investment": {
+        "weight": 0.5,
+        "description": "Assessment of expected returns for investors",
+        "evaluation_points": [
+          "Projected ROI based on market conditions",
+          "Timeframe for potential returns",
+          "Risk factors affecting returns"
+        ]
+      }
+    }
+  }
+}
