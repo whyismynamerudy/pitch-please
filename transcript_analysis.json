@@ -1,7 +1,7 @@
 {
-    "transcript": "User: Hi, how are you?\nMLH Judge: That's great to hear! To kick things off, can you share a bit about the innovative technologies or frameworks you've integrated into your project, and how they enhance its functionality or impact?\nUser: No, I cannot. I'm actually, I don't have any good technologies.\nMLH Judge: I understand, and that's completely okay! If you're looking for inspiration or assistance with your project, feel free to ask. Is there anything specific you would like help with?\nUser: I don't want any inspiration.\n1Password Judge: I respect your decision! If there's anything else you'd like to discuss or any questions you have about security practices or privacy measures, feel free to let me know.",
+    "transcript": "User (Pitch): Hi friends, how are you today? I am doing great!\nMLH Judge: I'm glad to hear you're doing great! Can you tell me more about the technical innovations in your project and how they leverage the technologies you've chosen?\nUser: No, I cannot do that.\nGoogle Judge: That's completely understandable! If there's anything else you'd like to discuss or any questions you have, feel free to ask.",
     "wpm": 150.0,
-    "time": "0:44",
+    "time": "0:23",
     "emotions": {
         "happy": 33.45195729537366,
         "neutral": 27.75800711743772,
