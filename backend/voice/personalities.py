@@ -1,3 +1,4 @@
+
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
@@ -54,51 +55,51 @@ PERSONALITIES = [
         ]
     },
     {
-    "name": "MLH Judge",
-    "description": "A Major League Hacking representative focused on cutting-edge technology adoption and innovative implementations. Values creative applications of new technologies and well-executed technical solutions. Has extensive experience evaluating hackathon projects across various domains.",
-    "voice_id": "pNInz6obpgDQGcFmaJgB",  # New voice ID
-    "question_focus": ["technical innovation", "implementation quality", "technology integration", "project scalability", "real-world impact"],
-    "prize_categories": [
-        {
-            "name": "Best Use of Generative AI",
-            "details": "Looking for novel applications leveraging Generative AI APIs. Focus on creative tools, intelligent assistants, or next-generation content creation platforms using APIs from OpenAI, Anthropic, Hugging Face, etc.",
-            "evaluation_criteria": ["AI integration", "innovation", "functionality", "real-world impact"]
-        },
-        {
-            "name": "Best AI Project with Databricks Open Source",
-            "prize": "4 Assorted Lego Sets",
-            "details": "Projects utilizing Databricks Open Source projects like Mosaic AI, Data Lakes, MLflow, or Databricks-friendly projects like LanceDB and Llama Index.",
-            "evaluation_criteria": ["use of Databricks tools", "AI implementation", "technical complexity", "innovation"]
-        },
-        {
-            "name": "Best Use of Terraform",
-            "details": "Projects using Terraform for infrastructure management, from ML model deployment to container orchestration.",
-            "evaluation_criteria": ["Terraform implementation", "infrastructure design", "cloud integration", "project organization"]
-        },
-        {
-            "name": "Best Use of Midnight",
-            "details": "Applications built on the Midnight blockchain focusing on data protection and security.",
-            "evaluation_criteria": ["data protection", "blockchain integration", "security features", "user privacy"]
-        },
-        {
-            "name": "Best Domain Name from GoDaddy Registry",
-            "details": "Projects with creative and effective domain names registered through GoDaddy Registry.",
-            "evaluation_criteria": ["domain relevance", "creativity", "branding effectiveness", "memorability"]
+        "name": "MLH Judge",
+        "description": "A Major League Hacking representative focused on cutting-edge technology adoption and innovative implementations. Values creative applications of new technologies and well-executed technical solutions. Has extensive experience evaluating hackathon projects across various domains.",
+        "voice_id": "pNInz6obpgDQGcFmaJgB",  # New voice ID
+        "question_focus": ["technical innovation", "implementation quality", "technology integration", "project scalability", "real-world impact"],
+        "prize_categories": [
+            {
+                "name": "Best Use of Generative AI",
+                "details": "Looking for novel applications leveraging Generative AI APIs. Focus on creative tools, intelligent assistants, or next-generation content creation platforms using APIs from OpenAI, Anthropic, Hugging Face, etc.",
+                "evaluation_criteria": ["AI integration", "innovation", "functionality", "real-world impact"]
+            },
+            {
+                "name": "Best AI Project with Databricks Open Source",
+                "prize": "4 Assorted Lego Sets",
+                "details": "Projects utilizing Databricks Open Source projects like Mosaic AI, Data Lakes, MLflow, or Databricks-friendly projects like LanceDB and Llama Index.",
+                "evaluation_criteria": ["use of Databricks tools", "AI implementation", "technical complexity", "innovation"]
+            },
+            {
+                "name": "Best Use of Terraform",
+                "details": "Projects using Terraform for infrastructure management, from ML model deployment to container orchestration.",
+                "evaluation_criteria": ["Terraform implementation", "infrastructure design", "cloud integration", "project organization"]
+            },
+            {
+                "name": "Best Use of Midnight",
+                "details": "Applications built on the Midnight blockchain focusing on data protection and security.",
+                "evaluation_criteria": ["data protection", "blockchain integration", "security features", "user privacy"]
+            },
+            {
+                "name": "Best Domain Name from GoDaddy Registry",
+                "details": "Projects with creative and effective domain names registered through GoDaddy Registry.",
+                "evaluation_criteria": ["domain relevance", "creativity", "branding effectiveness", "memorability"]
+            }
+        ]
+    },
+    {
+        "name": "Warp Judge",
+        "description": "A representative from Warp with expertise in developer tools and workflows. Specializes in evaluating tools that enhance developer productivity and experience. Has deep knowledge of terminal applications, AI integration, and collaborative development environments.",
+        "voice_id": "AZnzlk1XvdvUeBnXmlld",  # New voice ID
+        "question_focus": ["developer experience", "workflow optimization", "tool usability", "AI integration", "team collaboration"],
+        "prize_category": {
+            "name": "Best Developer Tool",
+            "prize": "4 Keychron keyboards",
+            "details": "Seeking the best developer tool that enhances developer productivity and workflow. Looking for innovative solutions that make developers' lives easier.",
+            "evaluation_criteria": ["developer productivity", "tool innovation", "usability", "practical application", "collaboration features"]
         }
-    ]
-},
-{
-    "name": "Warp Judge",
-    "description": "A representative from Warp with expertise in developer tools and workflows. Specializes in evaluating tools that enhance developer productivity and experience. Has deep knowledge of terminal applications, AI integration, and collaborative development environments.",
-    "voice_id": "AZnzlk1XvdvUeBnXmlld",  # New voice ID
-    "question_focus": ["developer experience", "workflow optimization", "tool usability", "AI integration", "team collaboration"],
-    "prize_category": {
-        "name": "Best Developer Tool",
-        "prize": "4 Keychron keyboards",
-        "details": "Seeking the best developer tool that enhances developer productivity and workflow. Looking for innovative solutions that make developers' lives easier.",
-        "evaluation_criteria": ["developer productivity", "tool innovation", "usability", "practical application", "collaboration features"]
     }
-}
 ]
 
 def get_personality_chains(openai_api_key):
@@ -142,8 +143,6 @@ def get_personality_chains(openai_api_key):
                 "Route: X\n"
                 "Target: (only if X=1)\n"
                 "Message: <your text>\n\n"
-                "Conversation so far:\n{history}\n\n"
-                "User just said: {user_input}\n\n"
                 f"{personality['name']}: "
             ),
         )

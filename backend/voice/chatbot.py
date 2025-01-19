@@ -1,12 +1,7 @@
-# chatbot.py
-import sys
-import select
-import termios
-import tty
+
 import os
 import asyncio
 import numpy as np
-import collections
 from dotenv import load_dotenv
 from voice.personalities import get_personality_chains
 from langchain_openai import ChatOpenAI
@@ -83,13 +78,6 @@ class NonStreamingCallbackHandler(BaseCallbackHandler):
 # parse_personality_response
 # -------------------------------------------------
 def parse_personality_response(full_response: str):
-    """
-    Personalities can produce:
-      Route:1 or 2
-      Target: <NAME> (only if route=1)
-      Message: <the text>
-    If missing => default route=2, entire text as message
-    """
     route, target, message = None, None, None
     lines = [ln.strip() for ln in full_response.splitlines() if ln.strip()]
 
@@ -111,6 +99,7 @@ def parse_personality_response(full_response: str):
         route = 2
     if not message:
         message = full_response
+
     return route, target, message
 
 # -------------------------------------------------
@@ -122,6 +111,7 @@ async def get_response(personality_name, history, user_input):
     """
     personality_data = personalities.get(personality_name)
     if not personality_data:
+        print(f"[Error] Personality '{personality_name}' not found.")
         return 2, None, "Personality not found."
 
     chain = personality_data["chain"]
@@ -135,6 +125,7 @@ async def get_response(personality_name, history, user_input):
         )
         raw_response = handler.get_complete_response()
         route, target, message = parse_personality_response(raw_response)
+        print(f"[Response] Route: {route}, Target: {target}, Message: {message}")
         return route, target, message
     except Exception as e:
         print(f"Error in get_response: {e}")
@@ -208,7 +199,7 @@ decider_llm = ChatOpenAI(
     streaming=False
 )
 
-DECIDER_SYSTEM_PROMPT = """You are a router that chooses which personality is best suited to respond based on the user's message. Reply with only one name: (nothing else)."""
+DECIDER_SYSTEM_PROMPT = """You are a router that chooses which personality is best suited to respond based on the user's message. Choose the most appropriate personality from the following list and reply with only one name: RBC Judge, Google Judge, 1Password Judge, UofT Judge, MLH Judge, Warp Judge. Do not include any additional text."""
 
 async def decide_personality(user_text: str) -> str:
     msgs = [
@@ -217,37 +208,12 @@ async def decide_personality(user_text: str) -> str:
     ]
     out = await decider_llm.agenerate([msgs])
     decided = out.generations[0][0].text.strip()
-    if decided in PERSONALITY_NAMES:
-        return decided
-    return "UofT Judge"
-
-# -------------------------------------------------
-# parse_personality_response
-# -------------------------------------------------
-def parse_personality_response(full_response: str):
-    route, target, message = None, None, None
-    lines = [ln.strip() for ln in full_response.splitlines() if ln.strip()]
-
-    for ln in lines:
-        low = ln.lower()
-        if low.startswith("route:"):
-            val = ln.split(":",1)[1].strip()
-            if val in ["1","2"]:
-                route = int(val)
-        elif low.startswith("target:"):
-            target = ln.split(":",1)[1].strip()
-        elif low.startswith("message:"):
-            message = ln.split(":",1)[1].strip()
-
-    if route not in [1,2]:
-        route = 2
-        message = full_response
-    if route == 1 and not target:
-        route = 2
-    if not message:
-        message = full_response
-
-    return route, target, message
+    # Validate the decision
+    valid_personalities = [name.lower() for name in PERSONALITY_NAMES]
+    for name in PERSONALITY_NAMES:
+        if name.lower() == decided.lower():
+            return name
+    return "UofT Judge"  # Default fallback
 
 # -------------------------------------------------
 # Main Chat Loop
@@ -331,7 +297,6 @@ async def chat_loop():
                 # Update for next iteration
                 current_personality = target
                 current_input = message
-
 
 if __name__ == "__main__":
     try:
