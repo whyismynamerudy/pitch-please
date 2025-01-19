@@ -296,7 +296,7 @@ function AnalysisSection({ analysisData }: { analysisData: AD | null }) {
                   className="w-3 h-3 rounded-full" 
                   style={{ backgroundColor: COLORS[index % COLORS.length] }}
                 />
-                <span className="text-sm">{emotion.name}: {emotion.value}%</span>
+                <span className="text-sm">{emotion.name}: {emotion.value as number}%</span>
               </div>
             ))}
           </div>
@@ -502,7 +502,13 @@ export default function FeedbackPage() {
               <h2 className="text-3xl font-semibold mb-6">Judges Consensus</h2>
               <ConsensusSection 
                 consensusData={analysisData?.evaluation_response.evaluation_results.main_evaluation.consensus_evaluation.discussion_summary || ''}
-                finalScores={analysisData?.evaluation_response.evaluation_results.main_evaluation.consensus_evaluation.final_scores || {}}
+                finalScores={analysisData?.evaluation_response.evaluation_results.main_evaluation.consensus_evaluation.final_scores || {
+                  practicality_and_impact: 0,
+                  pitching: 0,
+                  design: 0,
+                  completion: 0,
+                  theme_and_originality: 0
+                }}
               />
             </div>
           </div>
