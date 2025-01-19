@@ -25,7 +25,7 @@ export default function Home() {
         </nav>
 
         {/* Hero Section with Side-by-Side Layout */}
-        <div className="max-w-7xl mx-auto px-4 pt-20 pb-16">
+        <div className="max-w-7xl mx-auto pt-20 pb-16">
           <div className="flex flex-col md:flex-row items-center gap-12">
             {/* Left Column - Text Content */}
             <div className="flex-1 space-y-6">
@@ -62,29 +62,29 @@ export default function Home() {
                 <Image 
                   src="/images/uofthacks.jpg" 
                   alt="Feature 1" 
-                  width={300} 
-                  height={200} 
+                  width={400} 
+                  height={300} 
                   className="rounded-xl w-full aspect-video object-cover hover:scale-105 transition-transform"
                 />
                 <Image 
                   src="/images/image2.png" 
                   alt="Feature 2" 
-                  width={300} 
-                  height={200} 
+                  width={400} 
+                  height={300} 
                   className="rounded-xl w-full aspect-video object-cover hover:scale-105 transition-transform"
                 />
                 <Image 
                   src="/images/image3.png" 
                   alt="Feature 3" 
-                  width={300} 
-                  height={200} 
+                  width={400} 
+                  height={300} 
                   className="rounded-xl w-full aspect-video object-cover hover:scale-105 transition-transform"
                 />
                 <Image 
                   src="/images/mlh.jpg" 
                   alt="Feature 4" 
-                  width={300} 
-                  height={200} 
+                  width={400} 
+                  height={300} 
                   className="rounded-xl w-full aspect-video object-cover hover:scale-105 transition-transform"
                 />
               </div>
