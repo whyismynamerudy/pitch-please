@@ -73,13 +73,34 @@ export default function PitchPage() {
   }
 
   async function handleStop() {
+    // First stop everything as before
     const res = await fetch('http://127.0.0.1:8000/stop');
     const dat = await res.json();
     console.log('stop_all:', dat);
-
+  
+    // Generate analysis with current timer value and transcript
+    try {
+      const analysisRes = await fetch('http://127.0.0.1:8000/generate_analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          time_left: time,
+          transcript: transcript  // Send the entire transcript array
+        })
+      });
+      
+      const analysisData = await analysisRes.json();
+      console.log('Analysis generated:', analysisData);
+    } catch (error) {
+      console.error('Error generating analysis:', error);
+    }
+  
+    // Continue with cleanup as before
     if (videoWebSocket) videoWebSocket.close();
     if (transcriptWebSocket) transcriptWebSocket.close();
-
+  
     setVideoWebSocket(null);
     setTranscriptWebSocket(null);
     setIsSessionActive(false);
@@ -89,7 +110,7 @@ export default function PitchPage() {
       videoRef.current.src = '';
     }
   }
-
+  
   return (
     <div className="min-h-screen bg-[#14121f]">
       <div className="max-w-[1400px] mx-auto px-8">

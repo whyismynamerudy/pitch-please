@@ -1,5 +1,5 @@
 # backend.py
-
+from pydantic import BaseModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +8,7 @@ from deepface import DeepFace
 from collections import defaultdict
 import json
 import asyncio
+import os
 
 # Import chatbot components
 from voice.chatbot import (
@@ -138,7 +139,97 @@ def save_emotion_data():
 # ================================
 # Chatbot Endpoints
 # ================================
+# Add this Pydantic model for request validation
+# Add this updated Pydantic model for request validation
+class TimerData(BaseModel):
+    time_left: int
+    transcript: list[dict[str, str]]  # List of transcript entries with speaker and text
 
+def calculate_time_spent(time_left: int) -> str:
+    """
+    Convert time left (in seconds) to time spent format (MM:SS)
+    Total time is 5 minutes (300 seconds)
+    """
+    total_seconds = 300  # 5 minutes
+    time_spent = total_seconds - time_left
+    minutes = time_spent // 60
+    seconds = time_spent % 60
+    return f"{minutes}:{str(seconds).zfill(2)}"
+
+def create_transcript_json(transcript_data: list, wpm: float, time_spent: str, emotion_data: dict = None) -> dict:
+    """
+    Create analysis JSON combining transcript, WPM, time spent, and emotion data
+    """
+    # Format transcript data into a single string
+    transcript_text = "\n".join([f"{entry['speaker']}: {entry['text']}" for entry in transcript_data])
+    
+    data = {
+        "transcript": transcript_text,
+        "wpm": float(wpm),
+        "time": time_spent
+    }
+    
+    if emotion_data:
+        data["emotions"] = emotion_data
+    
+    # Save to file
+    try:
+        with open("transcript_analysis.json", 'w') as f:
+            json.dump(data, f, indent=4)
+        print(f"Analysis saved to: transcript_analysis.json")
+    except Exception as e:
+        print(f"Error saving analysis: {e}")
+        return None
+        
+    return data
+
+# Modified endpoint with proper request body handling
+@app.post("/generate_analysis")
+async def generate_analysis(data: TimerData):
+    """
+    Generate analysis JSON using:
+    - Transcript from frontend
+    - Emotions from emotion_data.json
+    - Time spent calculated from frontend timer
+    - Hardcoded WPM of 150
+    """
+    try:
+        # Calculate time spent from time left
+        time_spent = calculate_time_spent(data.time_left)
+        
+        # Hardcoded WPM
+        wpm = 150.0
+        
+        # Read emotion data if exists
+        emotion_data = None
+        try:
+            with open("emotion_data.json", "r") as f:
+                emotion_data = json.load(f)
+        except FileNotFoundError:
+            print("No emotion data found")
+        
+        # Generate analysis
+        result = create_transcript_json(
+            transcript_data=data.transcript,
+            wpm=wpm,
+            time_spent=time_spent,
+            emotion_data=emotion_data
+        )
+        
+        if result:
+            return JSONResponse(content=result)
+        else:
+            return JSONResponse(
+                content={"error": "Failed to generate analysis"},
+                status_code=500
+            )
+            
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+    
 @app.get("/stop")
 async def stop_all():
     """
