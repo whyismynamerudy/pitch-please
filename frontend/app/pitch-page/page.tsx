@@ -3,11 +3,14 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import LoadingAnalysis from '@/components/loading-analysis';
 
 export default function PitchPage() {
   const [time, setTime] = useState(300);
   const [videoWebSocket, setVideoWebSocket] = useState<WebSocket | null>(null);
   const [transcriptWebSocket, setTranscriptWebSocket] = useState<WebSocket | null>(null);
+
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
@@ -16,16 +19,16 @@ export default function PitchPage() {
   const [videoAvailable, setVideoAvailable] = useState(false); 
   const [currentSpeaker, setCurrentSpeaker] = useState<string | null>(null);
 
-  const router = useRouter();
+  const router = useRouter()
 
-  // Mapping from speaker names to sponsor images
+  // Mapping from speaker names to their sponsor images
   const speakerToImageMap: { [key: string]: string } = {
     "RBC Judge": "rbc.png",
     "Google Judge": "google.png",
     "1Password Judge": "password.png",
   };
 
-  // Timer that stops if `isSessionActive` is set to false
+  // Timer that stops if isSessionActive = false
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isSessionActive && time > 0) {
@@ -34,7 +37,7 @@ export default function PitchPage() {
     return () => clearInterval(interval);
   }, [isSessionActive, time]);
 
-  // Cleanup on unmount
+  // Cleanup websockets on unmount
   useEffect(() => {
     return () => {
       if (videoWebSocket) videoWebSocket.close();
@@ -42,9 +45,6 @@ export default function PitchPage() {
     };
   }, [videoWebSocket, transcriptWebSocket]);
 
-  // ------------------------
-  // Start Chat
-  // ------------------------
   async function handleStart() {
     // 1) Start Chat
     const res = await fetch('http://127.0.0.1:8000/start_chat');
@@ -56,9 +56,7 @@ export default function PitchPage() {
     wsVideo.onopen = () => console.log("Video WS open");
     wsVideo.onmessage = (evt) => {
       if (videoRef.current) {
-        videoRef.current.src = URL.createObjectURL(
-          new Blob([evt.data], { type: 'image/jpeg' })
-        );
+        videoRef.current.src = URL.createObjectURL(new Blob([evt.data], { type: 'image/jpeg' }));
         setVideoAvailable(true);
       }
     };
@@ -77,8 +75,6 @@ export default function PitchPage() {
       try {
         const msg = JSON.parse(evt.data);
         setTranscript(prev => [...prev, { speaker: msg.speaker, text: msg.text }]);
-        
-        // Judge highlight
         if (msg.speaker in speakerToImageMap) {
           setCurrentSpeaker(msg.speaker);
         } else if (msg.speaker === "User" || msg.speaker === "User (Pitch)") {
@@ -97,57 +93,35 @@ export default function PitchPage() {
     };
     setTranscriptWebSocket(wsTx);
 
-    // session is active, start 5-min timer
     setIsSessionActive(true);
     setTime(300);
   }
 
-  // ------------------------
-  // Begin Q&A
-  // ------------------------
   async function handleBeginQnA() {
     const res = await fetch('http://127.0.0.1:8000/begin_qna');
     const data = await res.json();
     console.log('begin_qna:', data);
   }
 
-  // ------------------------
-  // Stop EVERYTHING
-  // ------------------------
   async function handleStop() {
-    // 1) Instantly set session inactive -> stop timer
-    setIsSessionActive(false);
+    // Immediately hide video and show loading
+  setVideoAvailable(false);
+  setIsAnalyzing(true);
 
-    // 2) Immediately close websockets so transcript & video data no longer flow
-    if (videoWebSocket) {
-      videoWebSocket.close();
-      setVideoWebSocket(null);
-    }
-    if (transcriptWebSocket) {
-      transcriptWebSocket.close();
-      setTranscriptWebSocket(null);
-    }
-
-    // 3) Clear UI: hide video, blank transcript, no highlights
-    setVideoAvailable(false);
-    setCurrentSpeaker(null);
-    setTranscript([]);
-    if (videoRef.current) {
-      videoRef.current.src = '';
-    }
-    setTime(300);
-
-    // 4) Call backend /stop to set `force_audio_stop` = true, kill QnA loop
+  try {
+    // Kill audio FIRST before anything else
     const stopRes = await fetch('http://127.0.0.1:8000/stop');
     const stopData = await stopRes.json();
     console.log('stop_all:', stopData);
 
-    // 5) (Optional) Generate analysis
-    let analysisData: any = '';
+    // Generate analysis
+    let analysisData = '';
     try {
       const analysisRes = await fetch('http://127.0.0.1:8000/generate_analysis', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           time_left: time,
           transcript: transcript
@@ -158,16 +132,42 @@ export default function PitchPage() {
     } catch (error) {
       console.error('Error generating analysis:', error);
     }
-
-    // 6) If needed, store or navigate
     localStorage.setItem('pitchAnalysis', JSON.stringify(analysisData || {}));
-    // e.g. router.push('/feedback');
+
+    // Clean up all connections and UI state
+    if (videoWebSocket) {
+      videoWebSocket.close();
+      setVideoWebSocket(null);
+    }
+    if (transcriptWebSocket) {
+      transcriptWebSocket.close();
+      setTranscriptWebSocket(null);
+    }
+
+    setIsSessionActive(false);  // stops the timer
+    setTranscript([]);          // clear transcript
+    setTime(300);               // reset timer
+    setCurrentSpeaker(null);    // clear speaker highlight
+
+    if (videoRef.current) {
+      videoRef.current.src = '';
+    }
+
+    setIsAnalyzing(false);      // hide loading
+    
+    // Navigate to feedback page
+    router.push('/feedback');
+    
+  } catch (error) {
+    console.error('Error in stop sequence:', error);
+    setIsAnalyzing(false);      // Make sure to hide loading on error
   }
+}
 
   return (
     <div className="min-h-screen bg-[#14121f]">
+      {isAnalyzing && <LoadingAnalysis />}
       <div className="max-w-[1400px] mx-auto px-8">
-
         {/* Navbar */}
         <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
           <Link href="/">
@@ -187,24 +187,23 @@ export default function PitchPage() {
             </div>
           </div>
         </nav>
+        <br />
+        <br />
 
-        <br/><br/>
         <h1 className="text-5xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500">
           Pitch
         </h1>
-        <br/>
+        <br />
 
         <div className="flex gap-8">
-          {/* LEFT: Video & Buttons */}
           <div className="flex-1">
+            {/* Buttons */}
             <div className="flex items-center gap-4 mb-4">
               <button
                 onClick={handleStart}
                 disabled={isSessionActive}
                 className={`px-6 py-2 rounded-md ${
-                  isSessionActive
-                    ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600'
+                  isSessionActive ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
                 } text-white`}
               >
                 Start
@@ -214,9 +213,7 @@ export default function PitchPage() {
                 onClick={handleBeginQnA}
                 disabled={!isSessionActive}
                 className={`px-6 py-2 rounded-md ${
-                  !isSessionActive
-                    ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-green-500 hover:bg-green-600'
+                  !isSessionActive ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
                 } text-white`}
               >
                 Begin Q&A
@@ -226,9 +223,7 @@ export default function PitchPage() {
                 onClick={handleStop}
                 disabled={!isSessionActive}
                 className={`px-6 py-2 rounded-md ${
-                  !isSessionActive
-                    ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-red-500 hover:bg-red-600'
+                  !isSessionActive ? 'bg-gray-500 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
                 } text-white`}
               >
                 Stop
@@ -253,7 +248,7 @@ export default function PitchPage() {
               />
             </div>
 
-            {/* Sponsor images (Judge highlights) */}
+            {/* Sponsor images */}
             <div className="flex justify-center gap-8 mt-12">
               {['images/rbc.png', 'images/google.png', 'images/password.png'].map((img, index) => {
                 const speakerName = Object.keys(speakerToImageMap).find(
@@ -263,9 +258,7 @@ export default function PitchPage() {
                   <div
                     key={index}
                     className={`w-36 h-36 rounded-full overflow-hidden relative hover:ring-2 hover:ring-green-500 transition-all p-2 ${
-                      speakerName === currentSpeaker
-                        ? 'ring-4 ring-yellow-500'
-                        : 'bg-white'
+                      speakerName === currentSpeaker ? 'ring-4 ring-yellow-500' : 'bg-white'
                     }`}
                   >
                     <Image
@@ -280,9 +273,9 @@ export default function PitchPage() {
             </div>
           </div>
 
-          {/* RIGHT: Transcript */}
+          {/* Transcript */}
           <div className="flex-1">
-            <br/>
+            <br />
             <h2 className="text-2xl font-semibold text-white mb-2">Transcript</h2>
             <div className="bg-[#1c1b2b] p-4 rounded-md h-[300px] overflow-y-auto text-white">
               {transcript.map((entry, i) => (
