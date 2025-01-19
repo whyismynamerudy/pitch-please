@@ -214,7 +214,7 @@ export default function PitchPage() {
           <div className="flex-1">
             <br></br>
             <h2 className="text-2xl font-semibold text-white mb-2">Transcript</h2>
-            <div className="bg-[#1c1b2b] p-4 rounded-md min-h-[300px] overflow-y-auto text-white">
+            <div className="bg-[#1c1b2b] p-4 rounded-md h-[300px] overflow-y-auto text-white">
               {transcript.map((entry, i) => (
                 <div key={i} className="mb-2">
                   <strong>{entry.speaker}:</strong> {entry.text}
