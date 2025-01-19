@@ -6,15 +6,15 @@ import { useRef } from "react"
 const cards = [
   {
     title: "Refine your pitch like a pro.",
-    image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pexels-paul-loh-65233-233698.jpg-rnXcaYMQ8C68mv1JF0bpfu2eBR7LKY.jpeg"
+    image: "/images/pitch.jpg"
   },
   {
     title: "See your pitch through every lens.",
-    image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pexels-hikaique-65438.jpg-pDAljQMcsDf6flwxhn9oaYndSagRHa.jpeg"
+    image: "/images/lens.jpg"
   },
   {
     title: "Turn critiques into opportunities.",
-    image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pexels-introspectivedsgn-17716169.jpg-Ff7Ta2NTFK67FPqLAXGzibYEnGTROw.jpeg"
+    image: "images/celebrate.jpg"
   }
 ]
 
