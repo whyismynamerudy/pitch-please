@@ -3,10 +3,10 @@ from langchain_openai import ChatOpenAI
 from typing import List, Dict, Any
 import json
 from dataclasses import asdict
+from judges import EVALUATION_RUBRIC, SPONSOR_RUBRICS
 
 def clean_json_string(text: str) -> str:
     """Clean up a string that might contain JSON with markdown formatting."""
-    # Remove markdown code block if present
     if "```" in text:
         # Extract content between ```json and ```
         lines = text.split('\n')
@@ -31,7 +31,8 @@ class ConsensusBuilder:
         print("\n🔧 Initializing ConsensusBuilder...")
         self.discussion_template = PromptTemplate(
             input_variables=["initial_scores", "current_category", "previous_discussion"],
-            template="""You are facilitating a discussion between three judges about a hackathon project.
+            template="""You are facilitating a discussion between judges about a hackathon project.
+Note: This discussion is ONLY about the main hackathon rubric, not any sponsor challenges.
 
 Initial Scores for {current_category}:
 {initial_scores}
@@ -69,13 +70,19 @@ Format your response as a JSON string with this exact structure:
         category: str,
         initial_evaluations: List[Any]
     ) -> Dict[str, Any]:
-        """Build consensus among judges for a specific category."""
+        """Build consensus among judges for a specific category (main rubric only)."""
         print(f"\n🎯 Building consensus for category: {category}")
+        
+        # Filter out any sponsor challenge evaluations
+        main_evaluations = [
+            eval for eval in initial_evaluations
+            if category in eval.scores  # Only include if category exists in main rubric
+        ]
         
         print("📊 Formatting initial scores...")
         initial_scores = "\n".join([
             f"{eval.judge_name}: {eval.scores[category]} - {eval.feedback[category]}"
-            for eval in initial_evaluations
+            for eval in main_evaluations
         ])
         
         print("\n📝 Initial scores and feedback:")
@@ -136,8 +143,8 @@ Format your response as a JSON string with this exact structure:
         if not final_consensus:
             print("⚠️ No consensus reached, calculating average score...")
             avg_score = sum(
-                eval.scores[category] for eval in initial_evaluations
-            ) / len(initial_evaluations)
+                eval.scores[category] for eval in main_evaluations
+            ) / len(main_evaluations)
             
             final_consensus = {
                 "discussion": [previous_discussion] if previous_discussion else ["No detailed discussion available"],
@@ -160,13 +167,19 @@ class JudgePanelModerator:
         evaluations: List[Dict[str, Any]],
         rubric_categories: List[str]
     ) -> Dict[str, Any]:
-        """Moderate a full panel discussion across all categories."""
+        """Moderate a full panel discussion for main rubric categories only."""
         print("\n🎯 Starting panel discussion moderation...")
         
         final_scores = {}
         discussions = {}
         
-        for category in rubric_categories:
+        # Get main rubric categories (excluding sponsor categories)
+        main_categories = [
+            category for category in rubric_categories
+            if category in EVALUATION_RUBRIC
+        ]
+        
+        for category in main_categories:
             print(f"\n📋 Processing category: {category}")
             consensus = await self.consensus_builder.build_consensus(
                 category, evaluations
@@ -191,12 +204,18 @@ class JudgePanelModerator:
     def _generate_panel_summary(self, discussions: Dict[str, Any]) -> str:
         """Generate a summary of the panel's overall discussion process."""
         print("\n📊 Generating summary of panel discussions...")
-        summary = []
+        summary_parts = []
+        
         for category, discussion in discussions.items():
             print(f"Processing summary for {category}...")
-            summary.append(f"\n## {category} Discussion Summary:")
-            summary.append(discussion["final_reasoning"])
+            summary_parts.append(f"\n## {category} Discussion Summary:")
+            if "final_reasoning" in discussion:
+                summary_parts.append(discussion["final_reasoning"])
+            elif "discussion_log" in discussion and discussion["discussion_log"]:
+                summary_parts.append("Key discussion points:")
+                for point in discussion["discussion_log"]:
+                    summary_parts.append(f"- {point}")
         
-        full_summary = "\n".join(summary)
+        full_summary = "\n".join(summary_parts)
         print("✅ Panel summary generated")
         return full_summary
