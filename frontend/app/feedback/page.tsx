@@ -1,34 +1,81 @@
-'use client'
-
 import { motion } from 'framer-motion'
 import Image from 'next/image'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision"
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
+// Define interfaces for our data structure
+interface Score {
+  practicality_and_impact: number;
+  pitching: number;
+  design: number;
+  completion: number;
+  theme_and_originality: number;
+}
+
+interface Feedback {
+  practicality_and_impact: string;
+  pitching: string;
+  design: string;
+  completion: string;
+  theme_and_originality: string;
+}
+
+interface JudgeEvaluation {
+  judge_name: string;
+  company: string;
+  scores: Score;
+  feedback: Feedback;
+  overall_feedback: string;
+  key_points: string[];
+}
+
+interface ConsensusEvaluation {
+  final_scores: Score;
+  discussion_summary: string;
+  detailed_discussions: Record<string, any>;
+}
+
+interface MainEvaluation {
+  individual_evaluations: JudgeEvaluation[];
+  consensus_evaluation: ConsensusEvaluation;
+  meta_analysis: Record<string, any>;
+}
+
+interface EvaluationResults {
+  main_evaluation: MainEvaluation;
+  sponsor_challenges: Record<string, any>;
+}
+
+interface AnalysisData {
+  success: boolean;
+  evaluation_results: EvaluationResults;
+  captured_output: string;
+  input_data: {
+    wpm: number;
+    time: string;
+    emotions: Record<string, number>;
+  };
+}
 
 interface Company {
-  id: string
-  name: string
-  logo: string
-  expandedImage: string
-  sections: {
-    pace: string
-    duration: string
-    emotion: string
-    speakingStyle: string
-    improvement: string
-  }
+  id: string;
+  name: string;
+  logo: string;
+  expandedImage: string;
+  sections: Score;  // Change this from Record<string, number> to Score
+  feedback: Feedback;  // Change this from Record<string, string> to Feedback
+  keyPoints: string[];
 }
 
 interface ExpandableCardProps {
-  
-  company: Company
-  isExpanded: boolean
-  onExpand: () => void
+  company: Company;
+  isExpanded: boolean;
+  onExpand: () => void;
 }
 
-export function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCardProps) {
+function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCardProps) {
   return (
     <motion.div
       layout
@@ -40,7 +87,7 @@ export function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCard
         <div className="flex items-center gap-4 mb-6">
           <div className="w-[80px] h-[80px] flex-shrink-0">
             <Image
-              src={company.logo || "/placeholder.svg"}
+              src={company.logo}
               alt={`${company.name} logo`}
               width={80}
               height={80}
@@ -49,10 +96,11 @@ export function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCard
           </div>
           <div>
             <h3 className="text-2xl font-semibold">{company.name}</h3>
-            {/* Overall Score */}
             <div className="mt-2">
               <div className="inline-flex items-center justify-center bg-purple-500/20 rounded-full px-4 py-1">
-                <span className="text-purple-300 font-medium">Score: 8.5/10</span>
+                <span className="text-purple-300 font-medium">
+                  Average: {(Object.values(company.sections).reduce((a, b) => a + b, 0) / Object.keys(company.sections).length).toFixed(1)}
+                </span>
               </div>
             </div>
           </div>
@@ -67,26 +115,36 @@ export function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCard
         >
           {/* Category Scores Grid */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            {Object.entries(company.sections).map(([key]) => (
+            {Object.entries(company.sections).map(([key, value]) => (
               <div key={key} className="bg-white/5 rounded-lg p-4 text-center">
                 <h4 className="text-sm text-purple-300 capitalize mb-2">
                   {key.replace(/([A-Z])/g, " $1")}
                 </h4>
-                <span className="text-2xl font-bold">9.0</span>
+                <span className="text-2xl font-bold">{value.toFixed(1)}</span>
               </div>
             ))}
           </div>
 
           {/* Detailed Feedback */}
           <div className="space-y-4">
-            {Object.entries(company.sections).map(([key, value]) => (
+            {Object.entries(company.feedback).map(([key, value]) => (
               <div key={key} className="bg-white/5 rounded-lg p-4">
                 <h4 className="text-lg font-medium text-purple-300 capitalize mb-2">
-                  {key.replace(/([A-Z])/g, " $1")}
+                  {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}
                 </h4>
                 <p className="text-gray-300 leading-relaxed">{value}</p>
               </div>
             ))}
+          </div>
+
+          {/* Key Points */}
+          <div className="bg-white/5 rounded-lg p-4">
+            <h4 className="text-lg font-medium text-purple-300 mb-2">Key Points</h4>
+            <ul className="list-disc list-inside space-y-2">
+              {company.keyPoints.map((point: string, index: number) => (
+                <li key={index} className="text-gray-300">{point}</li>
+              ))}
+            </ul>
           </div>
         </motion.div>
       </motion.div>
@@ -96,58 +154,40 @@ export function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCard
 
 export default function FeedbackPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
+  const searchParams = useSearchParams()
 
-  const companies = [
-    {
-      id: '1',
-      name: 'RBC',
-      logo: '/images/rbc.png',
-      expandedImage: '/images/rbcc.png',
-      sections: {
-        pace: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-        duration: 'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-        emotion: 'Ut enim ad minim veniam, quis nostrud exercitation ullamco.',
-        speakingStyle: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-        improvement: 'Sed do eiusmod tempor incididunt ut labore.'
-      }
-    },
-    {
-      id: '2',
-      name: 'Google',
-      logo: '/images/google.png',
-      expandedImage: '/images/google2.webp',
-      sections: {
-        pace: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-        duration: 'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-        emotion: 'Ut enim ad minim veniam, quis nostrud exercitation ullamco.',
-        speakingStyle: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-        improvement: 'Sed do eiusmod tempor incididunt ut labore.'
-      }
-    },
-    {
-      id: '3',
-      name: '1Password',
-      logo: '/images/password.png',
-      expandedImage: '/images/passwordd.png',
-      sections: {
-        pace: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-        duration: 'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-        emotion: 'Ut enim ad minim veniam, quis nostrud exercitation ullamco.',
-        speakingStyle: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-        improvement: 'Sed do eiusmod tempor incididunt ut labore.'
-      }
+  useEffect(() => {
+    const data = searchParams.get('data')
+    if (data) {
+      setAnalysisData(JSON.parse(data) as AnalysisData)
     }
-  ]
+  }, [searchParams])
+
+  // Transform judges' evaluations into company data format
+  const companies: Company[] = analysisData ? analysisData.evaluation_results.main_evaluation.individual_evaluations.map((evaluation) => ({
+    id: evaluation.judge_name,
+    name: evaluation.company,
+    logo: `/images/${evaluation.judge_name.toLowerCase().replace(' ', '')}.png`,
+    expandedImage: `/images/${evaluation.judge_name.toLowerCase().replace(' ', '')}2.png`,
+    sections: evaluation.scores,
+    feedback: evaluation.feedback,
+    keyPoints: evaluation.key_points
+  })) : [];
+
+  // Calculate overall metrics
+  const consensusScores = analysisData?.evaluation_results.main_evaluation.consensus_evaluation.final_scores
+  const averageScore = consensusScores ? 
+    Object.values(consensusScores).reduce((a, b) => a + b, 0) / Object.keys(consensusScores).length : 0
 
   return (
     <div className="relative min-h-screen bg-black text-white">
-
       <div className="fixed inset-0 z-0">
         <BackgroundBeamsWithCollision />
       </div>
       
       <div className="relative z-10">
-      <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
+        <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
           <Link href="/">
             <Image 
               src="/images/logopitch.png"
@@ -165,6 +205,7 @@ export default function FeedbackPage() {
             </div>
           </div>
         </nav>
+
         <div className="max-w-7xl mx-auto px-4 py-8">
           <h1 className="text-6xl font-bold mb-12 bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text text-center">
             Interview Feedback
@@ -176,15 +217,17 @@ export default function FeedbackPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 text-center">
                 <h3 className="text-xl text-purple-300 mb-2">Average Score</h3>
-                <span className="text-4xl font-bold">8.7/10</span>
+                <span className="text-4xl font-bold">{averageScore.toFixed(1)}/10</span>
               </div>
               <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 text-center">
-                <h3 className="text-xl text-purple-300 mb-2">Interviews</h3>
-                <span className="text-4xl font-bold">3</span>
+                <h3 className="text-xl text-purple-300 mb-2">Judges</h3>
+                <span className="text-4xl font-bold">{companies.length}</span>
               </div>
               <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 text-center">
                 <h3 className="text-xl text-purple-300 mb-2">Success Rate</h3>
-                <span className="text-4xl font-bold">92%</span>
+                <span className="text-4xl font-bold">
+                  {((averageScore / 10) * 100).toFixed(0)}%
+                </span>
               </div>
             </div>
             
@@ -192,24 +235,8 @@ export default function FeedbackPage() {
             <div className="bg-white/5 backdrop-blur-md rounded-lg p-6">
               <h3 className="text-2xl font-semibold mb-4">Judges Consensus</h3>
               <p className="text-gray-300 leading-relaxed">
-                Outstanding performance across all interviews. Demonstrated excellent technical knowledge
-                and communication skills. Particularly strong in problem-solving and system design.
-                Recommended areas for improvement include deeper dive into distributed systems concepts.
+                {analysisData?.evaluation_results.main_evaluation.consensus_evaluation.discussion_summary}
               </p>
-            </div>
-          </div>
-
-          {/* Activity Log */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-semibold mb-4">Activity Log</h2>
-            <div className="backdrop-blur-md bg-white/5 rounded-lg p-4 h-[150px] overflow-y-auto border border-white/10">
-              {Array(6)
-                .fill(
-                  'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
-                )
-                .map((text, index) => (
-                  <p key={index} className="mb-2 last:mb-0">{text}</p>
-                ))}
             </div>
           </div>
 
@@ -230,5 +257,3 @@ export default function FeedbackPage() {
     </div>
   )
 }
-
-

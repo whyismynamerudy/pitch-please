@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import router from 'next/router';
 
 export default function PitchPage() {
   const [time, setTime] = useState(300);
@@ -78,6 +79,7 @@ export default function PitchPage() {
     const res = await fetch('http://127.0.0.1:8000/stop');
     const dat = await res.json();
     console.log('stop_all:', dat);
+    let analysisData = ''
   
     // Generate analysis with current timer value and transcript
     try {
@@ -92,7 +94,7 @@ export default function PitchPage() {
         })
       });
       
-      const analysisData = await analysisRes.json();
+      analysisData = await analysisRes.json();
       console.log('Analysis generated:', analysisData);
     } catch (error) {
       console.error('Error generating analysis:', error);
@@ -110,6 +112,11 @@ export default function PitchPage() {
     if (videoRef.current) {
       videoRef.current.src = '';
     }
+
+    router.push({
+      pathname: '/feedback',
+      query: { data: JSON.stringify(analysisData) }
+    });
   }
   
   return (
