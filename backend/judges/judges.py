@@ -3,6 +3,28 @@ from langchain_openai import ChatOpenAI
 from typing import Dict, Any
 import json
 
+# Sponsor-specific rubrics
+SPONSOR_RUBRICS = {
+    "rbc_challenge": {
+        "cyber_security": {
+            "weight": 0.35,
+            "description": "Effectiveness of cyber threat prevention measures for young banking customers. Evaluates the robustness of security features and protection against common cyber threats."
+        },
+        "student_focus": {
+            "weight": 0.25,
+            "description": "Relevance and appeal to student banking needs. Assesses how well the solution addresses specific financial challenges faced by students."
+        },
+        "implementation_feasibility": {
+            "weight": 0.25,
+            "description": "Technical feasibility of integration with banking systems. Evaluates the practicality of implementing the solution within existing banking infrastructure."
+        },
+        "regulatory_compliance": {
+            "weight": 0.15,
+            "description": "Adherence to banking regulations and security standards. Assesses compliance with financial regulations and data protection requirements."
+        }
+    }
+}
+
 JUDGE_PERSONAS = [
     {
         "name": "RBC Judge",
@@ -16,7 +38,12 @@ JUDGE_PERSONAS = [
         - Regulatory compliance considerations
         - Scalable financial solutions
         - Risk-mitigated architectures
-        - Audit-friendly systems"""
+        - Audit-friendly systems""",
+        "sponsor_challenge": {
+            "name": "Young, Smart, & Financially Savvy",
+            "description": "Focus on enhancing RBC's student banking offerings to limit cyber threats as youth engage in online shopping and finances.",
+            "criteria": SPONSOR_RUBRICS["rbc_challenge"]
+        }
     },
     {
         "name": "Google Judge",
@@ -48,6 +75,7 @@ JUDGE_PERSONAS = [
     }
 ]
 
+# Main hackathon rubric
 EVALUATION_RUBRIC = {
     "practicality_and_impact": {
         "weight": 0.25,
@@ -73,44 +101,88 @@ EVALUATION_RUBRIC = {
 
 def get_judge_prompt_template(persona: Dict[str, str]) -> PromptTemplate:
     """Creates a prompt template for a specific judge persona."""
-    print(f"\n📝 Creating prompt template for {persona['name']}...")
-    template = (
+    
+    # Base evaluation template
+    base_template = (
         f"You are a judge from {persona['company']} evaluating hackathon projects.\n"
         f"Background: {persona['background']}\n"
         f"Evaluation Style: {persona['evaluation_bias']}\n\n"
         "Project Pitch Details:\n{pitch_details}\n\n"
-        "Evaluation Rubric:\n{rubric}\n\n"
-        "Please provide your evaluation in JSON format with this exact structure:\n"
-        "{{\n"
-        '    "scores": {{\n'
-        '        "practicality_and_impact": 8.5,\n'
-        '        "pitching": 7.5,\n'
-        '        "design": 8.0,\n'
-        '        "completion": 9.0,\n'
-        '        "theme_and_originality": 8.0\n'
-        "    }},\n"
-        '    "feedback": {{\n'
-        '        "practicality_and_impact": "Your detailed feedback here",\n'
-        '        "pitching": "Your detailed feedback here",\n'
-        '        "design": "Your detailed feedback here",\n'
-        '        "completion": "Your detailed feedback here",\n'
-        '        "theme_and_originality": "Your detailed feedback here"\n'
-        "    }},\n"
-        '    "overall_feedback": "Your overall perspective of the project",\n'
-        '    "key_points": [\n'
-        '        "Key strength or weakness 1",\n'
-        '        "Key strength or weakness 2",\n'
-        '        "Key strength or weakness 3"\n'
-        "    ]\n"
-        "}}\n"
     )
     
-    prompt = PromptTemplate(
-        input_variables=["pitch_details", "rubric"],
-        template=template
+    # Add sponsor challenge context if applicable
+    if "sponsor_challenge" in persona:
+        base_template += (
+            f"You are also evaluating for the {persona['sponsor_challenge']['name']} sponsor challenge.\n"
+            f"Challenge Focus: {persona['sponsor_challenge']['description']}\n\n"
+        )
+    
+    base_template += (
+        "Evaluation Rubric:\n{rubric}\n\n"
+        "Please provide your evaluation in JSON format with this exact structure:\n"
+        "{{\n"  # Note the double braces for escaping
+        '    "main_evaluation": {{\n'  # Double braces here too
+        '        "scores": {{\n'
+        '            "practicality_and_impact": 8.5,\n'
+        '            "pitching": 7.5,\n'
+        '            "design": 8.0,\n'
+        '            "completion": 9.0,\n'
+        '            "theme_and_originality": 8.0\n'
+        "        }},\n"
+        '        "feedback": {{\n'
+        '            "practicality_and_impact": "Your detailed feedback here",\n'
+        '            "pitching": "Your detailed feedback here",\n'
+        '            "design": "Your detailed feedback here",\n'
+        '            "completion": "Your detailed feedback here",\n'
+        '            "theme_and_originality": "Your detailed feedback here"\n'
+        "        }},\n"
+        '        "overall_feedback": "Your overall perspective of the project",\n'
+        '        "key_points": [\n'
+        '            "Key strength or weakness 1",\n'
+        '            "Key strength or weakness 2",\n'
+        '            "Key strength or weakness 3"\n'
+        "        ]\n"
+        "    }}"
     )
-    print(f"✅ Created prompt template for {persona['name']}")
-    return prompt
+    
+    # Add sponsor challenge evaluation if applicable
+    if "sponsor_challenge" in persona:
+        base_template += ',\n'
+        base_template += (
+            '    "sponsor_challenge_evaluation": {{\n'
+            f'        "challenge_name": "{persona["sponsor_challenge"]["name"]}",\n'
+            '        "scores": {{\n'
+            '            "cyber_security": 0.0,\n'
+            '            "student_focus": 0.0,\n'
+            '            "implementation_feasibility": 0.0,\n'
+            '            "regulatory_compliance": 0.0\n'
+            "        }},\n"
+            '        "feedback": {{\n'
+            '            "cyber_security": "Your detailed feedback here",\n'
+            '            "student_focus": "Your detailed feedback here",\n'
+            '            "implementation_feasibility": "Your detailed feedback here",\n'
+            '            "regulatory_compliance": "Your detailed feedback here"\n'
+            "        }},\n"
+            '        "challenge_specific_feedback": "Your overall assessment for the sponsor challenge",\n'
+            '        "key_strengths": [\n'
+            '            "Strength 1",\n'
+            '            "Strength 2",\n'
+            '            "Strength 3"\n'
+            "        ],\n"
+            '        "areas_for_improvement": [\n'
+            '            "Area 1",\n'
+            '            "Area 2",\n'
+            '            "Area 3"\n'
+            "        ]\n"
+            "    }}"
+        )
+    
+    base_template += "\n}}"  # Close the main JSON object
+    
+    return PromptTemplate(
+        input_variables=["pitch_details", "rubric"],
+        template=base_template
+    )
 
 def create_judge_chain(
     persona: Dict[str, str],

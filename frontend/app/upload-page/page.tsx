@@ -36,7 +36,7 @@ export default function UploadPage() {
         <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
           <Card className="w-full max-w-3xl bg-[#1c1b2b] border-gray-800">
             <CardHeader>
-              <CardTitle className="text-4xl font-bold bg-gradient-to-r from-[#6366f1] to-[#4f46e5] bg-clip-text text-transparent">
+              <CardTitle className="text-4xl font-bold bg-gradient-to-r from-[#6366f1] to-[#82a9ee] bg-clip-text text-transparent">
                 Upload
               </CardTitle>
             </CardHeader>

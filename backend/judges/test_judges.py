@@ -2,7 +2,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from evaluation import EnhancedEvaluator
-from judges import EVALUATION_RUBRIC
+from judges import EVALUATION_RUBRIC, SPONSOR_RUBRICS
 
 # Load environment variables
 load_dotenv()
@@ -13,54 +13,55 @@ if not OPENAI_API_KEY:
 
 # Sample project pitch for testing
 SAMPLE_PITCH = """
-Project Name: EcoTracker - AI-Powered Sustainability Assistant
+Project Name: SecureSpend - AI-Powered Student Financial Security
 
-Our team has developed EcoTracker, an innovative mobile application that helps individuals and businesses track and reduce their carbon footprint using AI technology. Key features include:
+Our team has developed SecureSpend, an innovative banking security solution specifically designed for students. Key features include:
 
-1. Real-time Carbon Footprint Monitoring:
-   - Uses computer vision to analyze photos of receipts and automatically calculate carbon impact
-   - Integrates with smart home devices to track energy usage
-   - ML models predict and suggest optimal energy usage patterns
+1. AI-Powered Fraud Detection:
+   - Uses machine learning to detect unusual spending patterns
+   - Real-time transaction monitoring
+   - Behavioral analysis to identify potential threats
 
-2. Technical Implementation:
-   - Built using React Native for cross-platform compatibility
-   - TensorFlow Lite for on-device ML processing
-   - Cloud-based analytics using AWS
-   - Blockchain integration for carbon credit trading
+2. Student-Focused Security Features:
+   - Customizable spending limits and categories
+   - Location-based transaction verification
+   - Peer-to-peer payment protection
 
-3. Innovation:
-   - First app to use AI for receipt-based carbon tracking
-   - Novel approach to gamification of sustainability
-   - Unique social features for community engagement
+3. Technical Implementation:
+   - Built using React Native and Node.js
+   - AWS Lambda for serverless processing
+   - Blockchain for transaction verification
+   - End-to-end encryption for all data
 
-4. Market Impact:
-   - Target market: Environmentally conscious consumers and businesses
-   - Already has 1000+ beta users
-   - Potential to reduce individual carbon footprint by 20%
+4. Education Component:
+   - Interactive tutorials on financial security
+   - Gamified learning modules
+   - Real-world case studies of cyber threats
 
 5. Future Plans:
-   - Expanding ML capabilities
-   - Adding business-specific features
-   - Integration with smart city infrastructure
+   - Integration with major banking systems
+   - Expansion to international student markets
+   - Advanced biometric authentication
 """
 
-# Get rubric categories
-RUBRIC_CATEGORIES = list(EVALUATION_RUBRIC.keys())
-
 async def run_test():
-    print("Starting evaluation test...")
+    print("Starting enhanced evaluation test...")
     
     # Initialize the evaluator
     evaluator = EnhancedEvaluator(OPENAI_API_KEY)
     
     try:
+        # Get main rubric categories
+        main_categories = list(EVALUATION_RUBRIC.keys())
+        
         # Run the evaluation
         print("\nRunning project evaluation...")
-        results = await evaluator.evaluate_project(SAMPLE_PITCH, RUBRIC_CATEGORIES)
+        results = await evaluator.evaluate_project(SAMPLE_PITCH, main_categories)
         
-        # Print individual evaluations
-        print("\n=== Individual Judge Evaluations ===")
-        for eval in results["individual_evaluations"]:
+        # Print main evaluation results
+        print("\n=== Main Hackathon Evaluation ===")
+        print("\nIndividual Judge Evaluations:")
+        for eval in results["main_evaluation"]["individual_evaluations"]:
             print(f"\nJudge: {eval['judge_name']} ({eval['company']})")
             print("Scores:")
             for category, score in eval["scores"].items():
@@ -68,12 +69,10 @@ async def run_test():
             print("\nKey Points:")
             for point in eval["key_points"]:
                 print(f"  - {point}")
-            print("\nOverall Feedback:")
-            print(f"  {eval['overall_feedback']}")
         
-        # Print consensus evaluation
+        # Print consensus results
         print("\n=== Consensus Evaluation ===")
-        consensus = results["consensus_evaluation"]
+        consensus = results["main_evaluation"]["consensus_evaluation"]
         print("\nFinal Scores:")
         for category, score in consensus["final_scores"].items():
             print(f"  {category}: {score}")
@@ -81,9 +80,31 @@ async def run_test():
         print("\nDiscussion Summary:")
         print(consensus["discussion_summary"])
         
+        # Print sponsor challenge results
+        print("\n=== Sponsor Challenge Results ===")
+        for challenge_name, challenge_data in results["sponsor_challenges"].items():
+            print(f"\n{challenge_name} Challenge")
+            print(f"Evaluated by: {challenge_data['evaluator']} ({challenge_data['company']})")
+            
+            eval_data = challenge_data["evaluation"]
+            print("\nScores:")
+            for criterion, score in eval_data["scores"].items():
+                print(f"  {criterion}: {score}")
+            
+            print("\nKey Strengths:")
+            for strength in eval_data["key_strengths"]:
+                print(f"  - {strength}")
+            
+            print("\nAreas for Improvement:")
+            for area in eval_data["areas_for_improvement"]:
+                print(f"  - {area}")
+            
+            print("\nChallenge-Specific Feedback:")
+            print(eval_data["challenge_specific_feedback"])
+        
         # Print meta-analysis
         print("\n=== Meta Analysis ===")
-        meta = results["meta_analysis"]
+        meta = results["main_evaluation"]["meta_analysis"]
         print("\nScore Changes:")
         for category, changes in meta["score_changes"].items():
             print(f"\n{category}:")
@@ -91,12 +112,10 @@ async def run_test():
             print(f"  Final score: {changes['final_score']}")
             print(f"  Average change: {changes['average_change']:.2f}")
         
-        print("\nDiscussion Highlights:")
-        for highlight in meta["discussion_highlights"]:
-            print(f"  - {highlight}")
-            
     except Exception as e:
         print(f"Error during evaluation: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     asyncio.run(run_test())

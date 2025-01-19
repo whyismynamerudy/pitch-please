@@ -1,8 +1,8 @@
 from dataclasses import dataclass, asdict
 import json
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import asyncio
-from judges import JUDGE_PERSONAS, EVALUATION_RUBRIC
+from judges import JUDGE_PERSONAS, EVALUATION_RUBRIC, SPONSOR_RUBRICS
 from judge_consensus import JudgePanelModerator
 from judges import get_all_judge_chains
 
@@ -29,6 +29,15 @@ def clean_json_string(text: str) -> str:
     return text
 
 @dataclass
+class SponsorEvaluation:
+    challenge_name: str
+    scores: Dict[str, float]
+    feedback: Dict[str, str]
+    challenge_specific_feedback: str
+    key_strengths: List[str]
+    areas_for_improvement: List[str]
+
+@dataclass
 class InitialEvaluation:
     judge_name: str
     company: str
@@ -36,6 +45,7 @@ class InitialEvaluation:
     feedback: Dict[str, str]
     overall_feedback: str
     key_points: List[str]
+    sponsor_evaluation: Optional[SponsorEvaluation] = None
 
 @dataclass
 class ConsensusEvaluation:
@@ -58,7 +68,7 @@ class EnhancedEvaluator:
         pitch_details: str,
         rubric_categories: List[str]
     ) -> Dict[str, Any]:
-        """Complete evaluation process including individual judgments and consensus building."""
+        """Complete evaluation process including individual judgments, consensus building, and sponsor challenges."""
         print("\n🔄 Starting project evaluation process...")
         
         # Get initial evaluations from each judge
@@ -74,7 +84,7 @@ class EnhancedEvaluator:
         
         print(f"✅ Received {len(initial_evaluations)} valid evaluations")
             
-        # Build consensus through panel discussion
+        # Build consensus through panel discussion (main rubric only)
         print("\n🤝 Starting consensus building process...")
         consensus = await self.panel_moderator.moderate_panel_discussion(
             initial_evaluations,
@@ -82,9 +92,12 @@ class EnhancedEvaluator:
         )
         print("✅ Consensus building completed")
         
+        # Extract sponsor evaluations
+        sponsor_results = self._extract_sponsor_evaluations(initial_evaluations)
+        
         # Generate final report
         print("\n📊 Generating final report...")
-        return self._generate_final_report(initial_evaluations, consensus)
+        return self._generate_final_report(initial_evaluations, consensus, sponsor_results)
 
     async def _gather_initial_evaluations(
         self,
@@ -94,22 +107,36 @@ class EnhancedEvaluator:
         """Gather initial evaluations from all judges."""
         evaluation_tasks = []
         
-        # Format rubric as a detailed string with descriptions
-        rubric_str = "Evaluation Criteria:\n" + "\n".join([
+        # Format main rubric as a detailed string
+        main_rubric_str = "Main Evaluation Criteria:\n" + "\n".join([
             f"{category}:\n"
             f"- Description: {EVALUATION_RUBRIC[category]['description']}\n"
             f"- Weight: {EVALUATION_RUBRIC[category]['weight']}"
             for category in rubric_categories
         ])
         
-        print(f"\n📋 Formatted rubric for judges:\n{rubric_str}\n")
+        # Format sponsor rubrics
+        sponsor_rubrics_str = "\n\nSponsor Challenge Criteria:\n"
+        for sponsor, criteria in SPONSOR_RUBRICS.items():
+            sponsor_rubrics_str += f"\n{sponsor}:\n"
+            for criterion, details in criteria.items():
+                sponsor_rubrics_str += (
+                    f"- {criterion}:\n"
+                    f"  Description: {details['description']}\n"
+                    f"  Weight: {details['weight']}\n"
+                )
+        
+        # Combine rubrics
+        full_rubric = main_rubric_str + sponsor_rubrics_str
+        
+        print(f"\n📋 Formatted rubric for judges:\n{full_rubric}\n")
         
         for judge_name, chain in self.judge_chains.items():
             print(f"\n🧑‍⚖️ Creating evaluation task for {judge_name}...")
             task = asyncio.create_task(
                 chain.ainvoke({
                     "pitch_details": pitch_details,
-                    "rubric": rubric_str
+                    "rubric": full_rubric
                 })
             )
             evaluation_tasks.append((judge_name, task))
@@ -127,77 +154,97 @@ class EnhancedEvaluator:
                 else:
                     result_text = str(result)
                 
-                print(f"\n📝 Raw response from {judge_name}:")
-                print("-" * 40)
-                print(result_text)
-                print("-" * 40)
-                
                 # Clean and parse the JSON response
                 print(f"\n🔍 Parsing response from {judge_name}...")
                 cleaned_text = clean_json_string(result_text)
-                print(f"\n🧹 Cleaned JSON text:")
-                print(cleaned_text)
                 parsed_result = json.loads(cleaned_text)
                 
-                # Verify required fields
-                required_fields = {'scores', 'feedback', 'overall_feedback', 'key_points'}
-                missing_fields = required_fields - set(parsed_result.keys())
-                if missing_fields:
-                    raise ValueError(f"Missing required fields: {missing_fields}")
-                
-                print(f"✅ Successfully parsed response from {judge_name}")
+                # Extract main evaluation
+                main_eval = parsed_result["main_evaluation"]
                 
                 # Create evaluation object
-                evaluations.append(
-                    InitialEvaluation(
-                        judge_name=judge_name,
-                        company=next(
-                            j["company"] for j in JUDGE_PERSONAS
-                            if j["name"] == judge_name
-                        ),
-                        scores=parsed_result['scores'],
-                        feedback=parsed_result['feedback'],
-                        overall_feedback=parsed_result['overall_feedback'],
-                        key_points=parsed_result['key_points']
-                    )
+                judge_eval = InitialEvaluation(
+                    judge_name=judge_name,
+                    company=next(
+                        j["company"] for j in JUDGE_PERSONAS
+                        if j["name"] == judge_name
+                    ),
+                    scores=main_eval['scores'],
+                    feedback=main_eval['feedback'],
+                    overall_feedback=main_eval['overall_feedback'],
+                    key_points=main_eval['key_points']
                 )
+                
+                # Add sponsor evaluation if present
+                if "sponsor_challenge_evaluation" in parsed_result:
+                    sponsor_eval = parsed_result["sponsor_challenge_evaluation"]
+                    judge_eval.sponsor_evaluation = SponsorEvaluation(
+                        challenge_name=sponsor_eval["challenge_name"],
+                        scores=sponsor_eval["scores"],
+                        feedback=sponsor_eval["feedback"],
+                        challenge_specific_feedback=sponsor_eval["challenge_specific_feedback"],
+                        key_strengths=sponsor_eval["key_strengths"],
+                        areas_for_improvement=sponsor_eval["areas_for_improvement"]
+                    )
+                
+                evaluations.append(judge_eval)
                 print(f"✅ Created evaluation object for {judge_name}")
                 
             except Exception as e:
                 print(f"\n❌ Error in evaluation from {judge_name}: {str(e)}")
-                import traceback
-                print("\nFull traceback:")
-                traceback.print_exc()
                 continue
         
         return evaluations
+    
+    def _extract_sponsor_evaluations(
+        self,
+        evaluations: List[InitialEvaluation]
+    ) -> Dict[str, Any]:
+        """Extract and organize sponsor challenge evaluations."""
+        sponsor_results = {}
+        
+        for eval in evaluations:
+            if eval.sponsor_evaluation:
+                challenge_name = eval.sponsor_evaluation.challenge_name
+                sponsor_results[challenge_name] = {
+                    "evaluator": eval.judge_name,
+                    "company": eval.company,
+                    "evaluation": asdict(eval.sponsor_evaluation)
+                }
+        
+        return sponsor_results
 
     def _generate_final_report(
         self,
         initial_evaluations: List[InitialEvaluation],
-        consensus: Dict[str, Any]
+        consensus: Dict[str, Any],
+        sponsor_results: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Generate comprehensive final report including individual and consensus evaluations."""
+        """Generate comprehensive final report including main and sponsor evaluations."""
         print("\n📊 Generating final report...")
         
         report = {
-            "individual_evaluations": [
-                asdict(eval) for eval in initial_evaluations
-            ],
-            "consensus_evaluation": {
-                "final_scores": consensus["final_scores"],
-                "discussion_summary": consensus["panel_summary"],
-                "detailed_discussions": consensus["discussion_records"]
+            "main_evaluation": {
+                "individual_evaluations": [
+                    {k: v for k, v in asdict(eval).items() if k != 'sponsor_evaluation'}
+                    for eval in initial_evaluations
+                ],
+                "consensus_evaluation": {
+                    "final_scores": consensus["final_scores"],
+                    "discussion_summary": consensus["panel_summary"],
+                    "detailed_discussions": consensus["discussion_records"]
+                },
+                "meta_analysis": {
+                    "score_changes": self._analyze_score_changes(
+                        initial_evaluations,
+                        consensus["final_scores"]
+                    ),
+                    "discussion_highlights": self._extract_discussion_highlights(
+                        consensus["discussion_records"]
+                    )
+                }
             },
-            "meta_analysis": {
-                "score_changes": self._analyze_score_changes(
-                    initial_evaluations,
-                    consensus["final_scores"]
-                ),
-                "discussion_highlights": self._extract_discussion_highlights(
-                    consensus["discussion_records"]
-                )
-            }
+            "sponsor_challenges": sponsor_results
         }
         
         print("✅ Final report generated")

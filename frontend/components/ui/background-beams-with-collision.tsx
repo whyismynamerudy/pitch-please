@@ -31,8 +31,8 @@ export const BackgroundBeamsWithCollision = ({
     <div
       ref={parentRef}
       className={cn(
-        "h-screen bg-[rgb(22,14,34)] relative flex items-center w-full justify-center overflow-hidden",
-        className
+       "h-screen bg-gradient-to-b from-[rgb(4,5,39)] to-[rgb(66,65,73)] relative flex items-center w-full justify-center overflow-hidden",
+      className
       )}
     >
       {beams.map((beam, idx) => (
@@ -55,7 +55,7 @@ export const BackgroundBeamsWithCollision = ({
             repeatDelay: beam.repeatDelay,
           }}
           className={cn(
-            "absolute left-0 top-0 h-32 w-[1px] bg-gradient-to-b from-transparent via-violet-500 to-transparent",
+            "absolute left-0 top-0 h-32 w-[1px] bg-gradient-to-b from-transparent via-blue-500 to-transparent",
             beam.className
           )}
         />
