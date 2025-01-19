@@ -201,11 +201,10 @@ def create_transcript_json(transcript_data: list, wpm: float, time_spent: str, e
         
     return data
 
-# Modified endpoint with proper request body handling
 @app.post("/generate_analysis")
 async def generate_analysis(data: TimerData):
     """
-    Generate analysis JSON using:
+    Generate pitch evaluation using:
     - Transcript from frontend
     - Emotions from emotion_data.json
     - Time spent calculated from frontend timer
@@ -217,36 +216,41 @@ async def generate_analysis(data: TimerData):
         
         # Hardcoded WPM
         wpm = 150.0
-        
-        # Read emotion data if exists
+
+        # Read emotion data if it exists
         emotion_data = None
         try:
             with open("emotion_data.json", "r") as f:
                 emotion_data = json.load(f)
         except FileNotFoundError:
-            print("No emotion data found")
-        
-        # Generate analysis
-        result = create_transcript_json(
-            transcript_data=data.transcript,
+            print("No emotion data found, proceeding with empty emotions.")
+
+        # Format transcript into a single string
+        transcript_text = "\n".join([f"{entry['speaker']}: {entry['text']}" for entry in data.transcript])
+
+        # Create PitchEvaluation object
+        pitch_evaluation = PitchEvaluation(
+            transcript=transcript_text,
             wpm=wpm,
-            time_spent=time_spent,
-            emotion_data=emotion_data
+            time=time_spent,
+            emotions=emotion_data or {}
         )
-        
-        if result:
-            return JSONResponse(content=result)
-        else:
-            return JSONResponse(
-                content={"error": "Failed to generate analysis"},
-                status_code=500
-            )
-            
+
+        # Evaluate the pitch
+        evaluation_response = await evaluate_pitch(pitch_evaluation)
+
+        # Print the evaluation results in the terminal
+        print("Evaluation Response:", evaluation_response.json(indent=4))
+
+        # Return the evaluation results to the frontend
+        return evaluation_response
+
     except Exception as e:
         return JSONResponse(
             content={"error": str(e)},
             status_code=500
         )
+
     
 @app.get("/stop")
 async def stop_all():
@@ -459,7 +463,7 @@ def formatted_history(chat_history: ChatMessageHistory) -> str:
 
 
 
-@app.post("/evaluate_pitch")
+# @app.post("/evaluate_pitch")
 async def evaluate_pitch(data: PitchEvaluation):
     """
     Evaluates a pitch using AI judges and returns both results and captured output.

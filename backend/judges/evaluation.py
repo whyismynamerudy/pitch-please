@@ -2,9 +2,9 @@ from dataclasses import dataclass, asdict
 import json
 from typing import Dict, List, Any, Optional
 import asyncio
-from judges import JUDGE_PERSONAS, EVALUATION_RUBRIC, SPONSOR_RUBRICS
-from judge_consensus import JudgePanelModerator
-from judges import get_all_judge_chains
+from judges.judges import JUDGE_PERSONAS, EVALUATION_RUBRIC, SPONSOR_RUBRICS
+from judges.judge_consensus import JudgePanelModerator
+from judges.judges import get_all_judge_chains
 
 def clean_json_string(text: str) -> str:
     """Clean up a string that might contain JSON with markdown formatting."""
