@@ -1,5 +1,5 @@
 { 
-    "analysis_results": {
+    "analysis_result": {
         "emotions": {"neutral": 44.921875, "sad": 29.6875, "fear": 9.765625, "angry": 7.421875, "happy": 7.03125},
         "time": "0:34",
         "transcript": "User (Pitch): We're pitching a finance app that does.\nGoogle Judge: Can you elaborate on the scalability strategies you plan to implement for your finance app to handle a growing user base and high transaction volumes?\nUser: on these strategies this is under NDA.\n1Password Judge: I understand the constraints of your NDA. However, could you share how your finance app ensures user data privacy and what encryption methods you are employing to protect sensitive financial information?",

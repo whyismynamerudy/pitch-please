@@ -232,6 +232,8 @@ function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCardProps) 
 function AnalysisSection({ analysisData }: { analysisData: AD | null }) {
   if (!analysisData) return null;
 
+  console.log(analysisData.analysis_result)
+
   const { emotions, wpm, time, transcript } = analysisData.analysis_result;
   
   // Transform emotions data for pie chart
@@ -387,7 +389,7 @@ export default function FeedbackPage() {
     try {
       const response = await fetch('/hi.json');
       const data = await response.json();
-      setAnalysisData(data);
+      setAnalysisData(data as AD);
     } catch (error) {
       console.error('Error loading test data:', error);
       setError('Error loading test data');
