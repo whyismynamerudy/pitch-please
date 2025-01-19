@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
 
 export default function UploadPage() {
   const router = useRouter()
@@ -23,12 +25,23 @@ export default function UploadPage() {
 
       {/* Foreground Content */}
       <div className="relative z-10">
-        {/* Centered Navbar */}
-        <nav className="flex justify-center items-center p-6">
-          <div className="w-full max-w-7xl flex justify-between items-center px-4">
-            <a href="/" className="text-white text-xl font-medium">
-              Home
-            </a>
+         {/* Updated Navbar */}
+         <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
+          <Link href="/">
+            <Image 
+              src="/images/logopitch.png"
+              alt="Logo"
+              width={180}
+              height={40}
+              className="hover:opacity-90 transition-opacity"
+            />
+          </Link>
+          <div className="border border-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500 rounded-lg p-[1px]">
+            <div className="bg-[rgb(40,40,45)] rounded-lg px-6 py-3">
+              <a href="/" className="text-white text-xl font-medium hover:opacity-80 transition-opacity">
+                Home
+              </a>
+            </div>
           </div>
         </nav>
 

@@ -13,8 +13,17 @@ export default function Home() {
       </div>
 
       <div className="relative z-10">
-        {/* Navbar */}
-        <nav className="flex justify-end p-6">
+        {/* Updated Navbar */}
+        <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
+          <Link href="/">
+            <Image 
+              src="/images/logopitch.png"
+              alt="Logo"
+              width={180}
+              height={40}
+              className="hover:opacity-90 transition-opacity"
+            />
+          </Link>
           <div className="border border-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500 rounded-lg p-[1px]">
             <div className="bg-[rgb(40,40,45)] rounded-lg px-6 py-3">
               <a href="/" className="text-white text-xl font-medium hover:opacity-80 transition-opacity">
@@ -34,7 +43,7 @@ export default function Home() {
               <br></br>
               <br></br>
               <br></br>
-              <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight">
+              <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight">
                 Deliver pitches that <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500">win</span>
               </h1>
               <p className="text-lg md:text-xl text-gray-300 leading-relaxed">
@@ -50,7 +59,7 @@ export default function Home() {
             </div>
 
             {/* Right Column - Image Grid */}
-            <div className="flex-1">
+            <div className="flex-[1.7]">
               <br></br>
               <br></br>
               <br></br>
@@ -97,10 +106,8 @@ export default function Home() {
           <br></br>
           <br></br>
           <br></br>
-          <br></br>
-          <br></br>
-          <br></br>
-          <br></br>
+
+
 
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
             Perfecting your pitch is <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500">hard</span>.
