@@ -129,22 +129,21 @@ def get_personality_chains(openai_api_key):
             prize_info = "\n\nYou are judging for multiple prize categories:\n" + "\n\n".join(categories_info)
 
         prompt = PromptTemplate(
-            input_variables=["user_input"],
+            input_variables=["user_input", "history"],  # Add history as input variable
             template=(
                 f"You are {personality['name']}, {personality['description']}{prize_info}\n\n"
-                "After hearing a pitch, you should ask one single question based on your expertise, background, "
-                "and if applicable, your prize category requirements. "
-                f"Focus your questions on these areas: {', '.join(personality['question_focus'])}.\n\n"
-                "The following are the personalities you can interact with:\n"
-                f"{personality_descriptions}\n\n"
-                "You can speak to the user (Route=2) OR you can speak to another AI personality (Route=1).\n"
-                "If you choose Route=1, also specify which personality you want to speak to in 'Target'.\n"
-                "If you choose Route=2, you are speaking directly to the user (this ends your chain of passing).\n\n"
-                "Your response MUST follow this exact format (no extra text):\n"
-                "Route: X\n"
-                "Target: (only needed if X=1)\n"
-                "Message: <your specific questions based on your expertise and prize category if applicable>\n\n"
+                "You should ask one single question based on your expertise and the conversation context.\n"
+                "If the user indicates they don't want to present or answer questions, acknowledge this politely and ask if there's anything else you can help with.\n"
+                f"Focus your questions on these areas when appropriate: {', '.join(personality['question_focus'])}.\n\n"
+                "Previous conversation:\n{history}\n\n" 
                 "User: {user_input}\n\n"
+                "If you use Route=1, also specify 'Target:' with the other personality's name.\n"
+                "Your response MUST follow this exact format:\n\n"
+                "Route: X\n"
+                "Target: (only if X=1)\n"
+                "Message: <your text>\n\n"
+                "Conversation so far:\n{history}\n\n"
+                "User just said: {user_input}\n\n"
                 f"{personality['name']}: "
             ),
         )

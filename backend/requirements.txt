@@ -16,3 +16,5 @@ tf-keras
 langchain-community
 faster_whisper
 numpy
+fastapi
+uvicorn
