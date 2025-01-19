@@ -1,3 +1,4 @@
+
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
@@ -54,51 +55,51 @@ PERSONALITIES = [
         ]
     },
     {
-    "name": "MLH Judge",
-    "description": "A Major League Hacking representative focused on cutting-edge technology adoption and innovative implementations. Values creative applications of new technologies and well-executed technical solutions. Has extensive experience evaluating hackathon projects across various domains.",
-    "voice_id": "pNInz6obpgDQGcFmaJgB",  # New voice ID
-    "question_focus": ["technical innovation", "implementation quality", "technology integration", "project scalability", "real-world impact"],
-    "prize_categories": [
-        {
-            "name": "Best Use of Generative AI",
-            "details": "Looking for novel applications leveraging Generative AI APIs. Focus on creative tools, intelligent assistants, or next-generation content creation platforms using APIs from OpenAI, Anthropic, Hugging Face, etc.",
-            "evaluation_criteria": ["AI integration", "innovation", "functionality", "real-world impact"]
-        },
-        {
-            "name": "Best AI Project with Databricks Open Source",
-            "prize": "4 Assorted Lego Sets",
-            "details": "Projects utilizing Databricks Open Source projects like Mosaic AI, Data Lakes, MLflow, or Databricks-friendly projects like LanceDB and Llama Index.",
-            "evaluation_criteria": ["use of Databricks tools", "AI implementation", "technical complexity", "innovation"]
-        },
-        {
-            "name": "Best Use of Terraform",
-            "details": "Projects using Terraform for infrastructure management, from ML model deployment to container orchestration.",
-            "evaluation_criteria": ["Terraform implementation", "infrastructure design", "cloud integration", "project organization"]
-        },
-        {
-            "name": "Best Use of Midnight",
-            "details": "Applications built on the Midnight blockchain focusing on data protection and security.",
-            "evaluation_criteria": ["data protection", "blockchain integration", "security features", "user privacy"]
-        },
-        {
-            "name": "Best Domain Name from GoDaddy Registry",
-            "details": "Projects with creative and effective domain names registered through GoDaddy Registry.",
-            "evaluation_criteria": ["domain relevance", "creativity", "branding effectiveness", "memorability"]
+        "name": "MLH Judge",
+        "description": "A Major League Hacking representative focused on cutting-edge technology adoption and innovative implementations. Values creative applications of new technologies and well-executed technical solutions. Has extensive experience evaluating hackathon projects across various domains.",
+        "voice_id": "pNInz6obpgDQGcFmaJgB",  # New voice ID
+        "question_focus": ["technical innovation", "implementation quality", "technology integration", "project scalability", "real-world impact"],
+        "prize_categories": [
+            {
+                "name": "Best Use of Generative AI",
+                "details": "Looking for novel applications leveraging Generative AI APIs. Focus on creative tools, intelligent assistants, or next-generation content creation platforms using APIs from OpenAI, Anthropic, Hugging Face, etc.",
+                "evaluation_criteria": ["AI integration", "innovation", "functionality", "real-world impact"]
+            },
+            {
+                "name": "Best AI Project with Databricks Open Source",
+                "prize": "4 Assorted Lego Sets",
+                "details": "Projects utilizing Databricks Open Source projects like Mosaic AI, Data Lakes, MLflow, or Databricks-friendly projects like LanceDB and Llama Index.",
+                "evaluation_criteria": ["use of Databricks tools", "AI implementation", "technical complexity", "innovation"]
+            },
+            {
+                "name": "Best Use of Terraform",
+                "details": "Projects using Terraform for infrastructure management, from ML model deployment to container orchestration.",
+                "evaluation_criteria": ["Terraform implementation", "infrastructure design", "cloud integration", "project organization"]
+            },
+            {
+                "name": "Best Use of Midnight",
+                "details": "Applications built on the Midnight blockchain focusing on data protection and security.",
+                "evaluation_criteria": ["data protection", "blockchain integration", "security features", "user privacy"]
+            },
+            {
+                "name": "Best Domain Name from GoDaddy Registry",
+                "details": "Projects with creative and effective domain names registered through GoDaddy Registry.",
+                "evaluation_criteria": ["domain relevance", "creativity", "branding effectiveness", "memorability"]
+            }
+        ]
+    },
+    {
+        "name": "Warp Judge",
+        "description": "A representative from Warp with expertise in developer tools and workflows. Specializes in evaluating tools that enhance developer productivity and experience. Has deep knowledge of terminal applications, AI integration, and collaborative development environments.",
+        "voice_id": "AZnzlk1XvdvUeBnXmlld",  # New voice ID
+        "question_focus": ["developer experience", "workflow optimization", "tool usability", "AI integration", "team collaboration"],
+        "prize_category": {
+            "name": "Best Developer Tool",
+            "prize": "4 Keychron keyboards",
+            "details": "Seeking the best developer tool that enhances developer productivity and workflow. Looking for innovative solutions that make developers' lives easier.",
+            "evaluation_criteria": ["developer productivity", "tool innovation", "usability", "practical application", "collaboration features"]
         }
-    ]
-},
-{
-    "name": "Warp Judge",
-    "description": "A representative from Warp with expertise in developer tools and workflows. Specializes in evaluating tools that enhance developer productivity and experience. Has deep knowledge of terminal applications, AI integration, and collaborative development environments.",
-    "voice_id": "AZnzlk1XvdvUeBnXmlld",  # New voice ID
-    "question_focus": ["developer experience", "workflow optimization", "tool usability", "AI integration", "team collaboration"],
-    "prize_category": {
-        "name": "Best Developer Tool",
-        "prize": "4 Keychron keyboards",
-        "details": "Seeking the best developer tool that enhances developer productivity and workflow. Looking for innovative solutions that make developers' lives easier.",
-        "evaluation_criteria": ["developer productivity", "tool innovation", "usability", "practical application", "collaboration features"]
     }
-}
 ]
 
 def get_personality_chains(openai_api_key):
@@ -129,22 +130,19 @@ def get_personality_chains(openai_api_key):
             prize_info = "\n\nYou are judging for multiple prize categories:\n" + "\n\n".join(categories_info)
 
         prompt = PromptTemplate(
-            input_variables=["user_input"],
+            input_variables=["user_input", "history"],  # Add history as input variable
             template=(
                 f"You are {personality['name']}, {personality['description']}{prize_info}\n\n"
-                "After hearing a pitch, you should ask one single question based on your expertise, background, "
-                "and if applicable, your prize category requirements. "
-                f"Focus your questions on these areas: {', '.join(personality['question_focus'])}.\n\n"
-                "The following are the personalities you can interact with:\n"
-                f"{personality_descriptions}\n\n"
-                "You can speak to the user (Route=2) OR you can speak to another AI personality (Route=1).\n"
-                "If you choose Route=1, also specify which personality you want to speak to in 'Target'.\n"
-                "If you choose Route=2, you are speaking directly to the user (this ends your chain of passing).\n\n"
-                "Your response MUST follow this exact format (no extra text):\n"
-                "Route: X\n"
-                "Target: (only needed if X=1)\n"
-                "Message: <your specific questions based on your expertise and prize category if applicable>\n\n"
+                "You should ask one single question based on your expertise and the conversation context.\n"
+                "If the user indicates they don't want to present or answer questions, acknowledge this politely and ask if there's anything else you can help with.\n"
+                f"Focus your questions on these areas when appropriate: {', '.join(personality['question_focus'])}.\n\n"
+                "Previous conversation:\n{history}\n\n" 
                 "User: {user_input}\n\n"
+                "If you use Route=1, also specify 'Target:' with the other personality's name.\n"
+                "Your response MUST follow this exact format:\n\n"
+                "Route: X\n"
+                "Target: (only if X=1)\n"
+                "Message: <your text>\n\n"
                 f"{personality['name']}: "
             ),
         )

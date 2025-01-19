@@ -1,98 +1,157 @@
-'use client'
-import { useState, useEffect, useRef } from 'react'
-import Image from 'next/image'
+'use client';
+import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 
 export default function PitchPage() {
-  const [time, setTime] = useState(15)
-  const [isRecording, setIsRecording] = useState(false)
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const [time, setTime] = useState(300);
+  const [videoWebSocket, setVideoWebSocket] = useState<WebSocket | null>(null);
+  const [transcriptWebSocket, setTranscriptWebSocket] = useState<WebSocket | null>(null);
 
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
+
+  const videoRef = useRef<HTMLImageElement>(null);
+
+  // Timer
   useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isRecording && time > 0) {
-      interval = setInterval(() => {
-        setTime((prevTime) => prevTime - 1)
-      }, 1000)
+    let interval: NodeJS.Timeout;
+    if (isSessionActive && time > 0) {
+      interval = setInterval(() => setTime((t) => t - 1), 1000);
     }
-    return () => clearInterval(interval)
-  }, [isRecording, time])
+    return () => clearInterval(interval);
+  }, [isSessionActive, time]);
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      setVideoStream(stream)
+  // Cleanup websockets on unmount
+  useEffect(() => {
+    return () => {
+      if (videoWebSocket) videoWebSocket.close();
+      if (transcriptWebSocket) transcriptWebSocket.close();
+    };
+  }, [videoWebSocket, transcriptWebSocket]);
+
+  async function handleStart() {
+    // 1) Start Chat
+    const res = await fetch('http://127.0.0.1:8000/start_chat');
+    const data = await res.json();
+    console.log('start_chat:', data);
+
+    // 2) WebSocket for video
+    const wsVideo = new WebSocket('ws://127.0.0.1:8000/ws');
+    wsVideo.onopen = () => console.log("Video WS open");
+    wsVideo.onmessage = (evt) => {
       if (videoRef.current) {
-        videoRef.current.srcObject = stream
+        videoRef.current.src = URL.createObjectURL(new Blob([evt.data], { type: 'image/jpeg' }));
       }
-      setIsRecording(true)
-      setTime(15)
-    } catch (err) {
-      console.error('Error accessing camera:', err)
-    }
+    };
+    wsVideo.onerror = (err) => console.error("Video WS error:", err);
+    wsVideo.onclose = () => console.log("Video WS closed");
+    setVideoWebSocket(wsVideo);
+
+    // 3) WebSocket for transcript
+    const wsTx = new WebSocket('ws://127.0.0.1:8000/ws_transcript');
+    wsTx.onopen = () => console.log("Transcript WS open");
+    wsTx.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        setTranscript(prev => [...prev, { speaker: msg.speaker, text: msg.text }]);
+      } catch (e) {
+        console.error('Transcript parse error:', e);
+      }
+    };
+    wsTx.onerror = (err) => console.error("Transcript WS error:", err);
+    wsTx.onclose = () => console.log("Transcript WS closed");
+    setTranscriptWebSocket(wsTx);
+
+    setIsSessionActive(true);
+    setTime(300);
   }
 
-  const stopRecording = () => {
-    if (videoStream) {
-      videoStream.getTracks().forEach(track => track.stop())
-      setVideoStream(null)
+  async function handleBeginQnA() {
+    const res = await fetch('http://127.0.0.1:8000/begin_qna');
+    const data = await res.json();
+    console.log('begin_qna:', data);
+  }
+
+  async function handleStop() {
+    const res = await fetch('http://127.0.0.1:8000/stop');
+    const dat = await res.json();
+    console.log('stop_all:', dat);
+
+    if (videoWebSocket) videoWebSocket.close();
+    if (transcriptWebSocket) transcriptWebSocket.close();
+
+    setVideoWebSocket(null);
+    setTranscriptWebSocket(null);
+    setIsSessionActive(false);
+    setTranscript([]);
+    setTime(300);
+    if (videoRef.current) {
+      videoRef.current.src = '';
     }
-    setIsRecording(false)
   }
 
   return (
     <div className="min-h-screen bg-[#14121f]">
       <div className="max-w-[1400px] mx-auto px-8">
-        
-        {/* Navigation */}
         <nav className="py-6">
-          <a href="/" className="text-white text-xl font-medium">
-            Home
-          </a>
+          <a href="/" className="text-white text-xl font-medium">Home</a>
         </nav>
-        <br></br>
-        <br></br>
 
-        {/* Title with gradient */}
-        <h1 className="text-6xl font-bold bg-gradient-to-r from-[#6366f1] to-[#4f46e5] bg-clip-text text-transparent mb-8">
+        <h1 className="text-6xl font-bold bg-gradient-to-r from-[#6366f1] to-[#4f46e5]
+                       bg-clip-text text-transparent mb-8">
           Pitch
         </h1>
 
         <div className="flex gap-8">
-          {/* Left Section */}
           <div className="flex-1">
-            {/* Buttons and Timer */}
+            {/* Buttons */}
             <div className="flex items-center gap-4 mb-4">
               <button
-                onClick={startRecording}
-                className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                onClick={handleStart}
+                disabled={isSessionActive}
+                className={`px-6 py-2 rounded-md ${
+                  isSessionActive ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
+                } text-white`}
               >
-                Record
+                Start
               </button>
+
               <button
-                onClick={stopRecording}
-                className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                onClick={handleBeginQnA}
+                disabled={!isSessionActive}
+                className={`px-6 py-2 rounded-md ${
+                  !isSessionActive ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
+                } text-white`}
+              >
+                Begin Q&A
+              </button>
+
+              <button
+                onClick={handleStop}
+                disabled={!isSessionActive}
+                className={`px-6 py-2 rounded-md ${
+                  !isSessionActive ? 'bg-gray-500 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
+                } text-white`}
               >
                 Stop
               </button>
+
               <span className="text-red-500 text-xl ml-auto">
-                {String(Math.floor(time / 60)).padStart(2, '0')}:
-                {String(time % 60).padStart(2, '0')}
+                {String(Math.floor(time / 60)).padStart(2,'0')}:
+                {String(time % 60).padStart(2,'0')}
               </span>
             </div>
 
-            {/* Video Container */}
-            <div className="w-full aspect-video bg-[#1c1b2b] rounded-lg border border-gray-700 mb-4 overflow-hidden">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
+            {/* Video */}
+            <div
+              className={`w-full aspect-video rounded-lg border border-gray-700 mb-4 overflow-hidden ${
+                isSessionActive && videoRef.current?.src ? 'bg-black' : 'bg-[#1c1b2b]'
+              }`}
+            >
+              <img ref={videoRef} alt="Live Feed" className="w-full h-full object-cover" />
             </div>
 
-            {/* Sponsor Images - Adjusted size and positioning */}
+            {/* Sponsor images */}
             <div className="flex justify-center gap-8 mt-12">
               {['images/rbc.png', 'images/google.png', 'images/password.png'].map((img, index) => (
                 <div
@@ -111,18 +170,19 @@ export default function PitchPage() {
             </div>
           </div>
 
-          {/* Right Section - Transcript */}
-          <div className="w-96">
-            <div className="bg-[#1c1b2b] p-6 rounded-lg border border-gray-700 mt-[60px]">
-              <h2 className="text-white text-2xl font-bold mb-4">Transcript</h2>
-              <p className="text-gray-300">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
-                tempor incididunt ut labore et dolore magna aliqua.
-              </p>
+          {/* Transcript */}
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-white mb-2">Transcript</h2>
+            <div className="bg-[#1c1b2b] p-4 rounded-md min-h-[300px] overflow-y-auto text-white">
+              {transcript.map((entry, i) => (
+                <div key={i} className="mb-2">
+                  <strong>{entry.speaker}:</strong> {entry.text}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
-} 
+  );
+}
