@@ -1,14 +1,19 @@
 # backend.py
 
+import io
+import sys
+from dotenv import load_dotenv
 from pydantic import BaseModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import cv2
 from deepface import DeepFace
+from typing import Dict, Any
 from collections import defaultdict
 import json
 import asyncio
+from judges.evaluation import EnhancedEvaluator
 import os
 
 # Import chatbot components
@@ -21,6 +26,16 @@ from voice.chatbot import (
 )
 from langchain.schema import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
+
+# Load environment variables
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+class PitchEvaluation(BaseModel):
+    transcript: str
+    wpm: float
+    time: str
+    emotions: Dict[str, float]
 
 app = FastAPI()
 
@@ -441,6 +456,63 @@ def formatted_history(chat_history: ChatMessageHistory) -> str:
         elif isinstance(message, AIMessage):
             history_str += f"Assistant: {message.content}\n"
     return history_str
+
+
+
+@app.post("/evaluate_pitch")
+async def evaluate_pitch(data: PitchEvaluation):
+    """
+    Evaluates a pitch using AI judges and returns both results and captured output.
+    """
+    try:
+        # Create a string buffer to capture output
+        output_buffer = io.StringIO()
+        original_stdout = sys.stdout
+        sys.stdout = output_buffer
+
+        # Initialize evaluator
+        evaluator = EnhancedEvaluator(OPENAI_API_KEY)
+        
+        # Get rubric categories from the hardcoded rubric
+        from judges.judges import EVALUATION_RUBRIC
+        rubric_categories = list(EVALUATION_RUBRIC.keys())
+        
+        # Run evaluation
+        evaluation_results = await evaluator.evaluate_project(data.transcript, rubric_categories)
+        
+        # Restore original stdout and get captured output
+        sys.stdout = original_stdout
+        captured_output = output_buffer.getvalue()
+        output_buffer.close()
+        
+        # Return both results and captured output
+        return JSONResponse({
+            "success": True,
+            "evaluation_results": evaluation_results,
+            "captured_output": captured_output,
+            "input_data": {
+                "wpm": data.wpm,
+                "time": data.time,
+                "emotions": data.emotions
+            }
+        })
+
+    except Exception as e:
+        # Restore stdout in case of error
+        sys.stdout = original_stdout
+        if 'output_buffer' in locals():
+            output_buffer.close()
+            
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__
+            }
+        )
+
+
 
 if __name__ == "__main__":
     import uvicorn
