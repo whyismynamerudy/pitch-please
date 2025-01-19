@@ -14,6 +14,15 @@ export default function PitchPage() {
 
   const videoRef = useRef<HTMLImageElement>(null);
   const [videoAvailable, setVideoAvailable] = useState(false); 
+  const [currentSpeaker, setCurrentSpeaker] = useState<string | null>(null); // New state for current speaker
+
+  // Mapping from speaker names to their sponsor images
+  const speakerToImageMap: { [key: string]: string } = {
+    "RBC Judge": "rbc.png",
+    "Google Judge": "google.png",
+    "1Password Judge": "password.png",
+    // Add more mappings if you have additional judges
+  };
 
   // Timer
   useEffect(() => {
@@ -51,6 +60,7 @@ export default function PitchPage() {
     wsVideo.onclose = () => {
       console.log("Video WS closed");
       setVideoAvailable(false); // Reset video availability
+      setCurrentSpeaker(null); // Remove any highlights when video closes
     };
     setVideoWebSocket(wsVideo);
 
@@ -61,12 +71,24 @@ export default function PitchPage() {
       try {
         const msg = JSON.parse(evt.data);
         setTranscript(prev => [...prev, { speaker: msg.speaker, text: msg.text }]);
+
+        // Update currentSpeaker based on the new message
+        if (msg.speaker in speakerToImageMap) {
+          setCurrentSpeaker(msg.speaker);
+        } else if (msg.speaker === "User" || msg.speaker === "User (Pitch)") {
+          setCurrentSpeaker(null); // Remove highlights when user speaks
+        } else {
+          setCurrentSpeaker(null); // Default to no highlight for unknown speakers
+        }
       } catch (e) {
         console.error('Transcript parse error:', e);
       }
     };
     wsTx.onerror = (err) => console.error("Transcript WS error:", err);
-    wsTx.onclose = () => console.log("Transcript WS closed");
+    wsTx.onclose = () => {
+      console.log("Transcript WS closed");
+      setCurrentSpeaker(null); // Remove highlights when transcript closes
+    };
     setTranscriptWebSocket(wsTx);
 
     setIsSessionActive(true);
@@ -80,6 +102,7 @@ export default function PitchPage() {
   }
 
   async function handleStop() {
+    setVideoWebSocket(null);
     setVideoAvailable(false);
     // First stop everything as before
     const res = await fetch('http://127.0.0.1:8000/stop');
@@ -115,6 +138,7 @@ export default function PitchPage() {
     setIsSessionActive(false);
     setTranscript([]);
     setTime(300);
+    setCurrentSpeaker(null); // Remove all highlights
     if (videoRef.current) {
       videoRef.current.src = '';
     }
@@ -124,7 +148,7 @@ export default function PitchPage() {
       query: { data: JSON.stringify(analysisData) }
     });
   }
-  
+
   return (
     <div className="min-h-screen bg-[#14121f]">
       <div className="max-w-[1400px] mx-auto px-8">
@@ -147,13 +171,13 @@ export default function PitchPage() {
             </div>
           </div>
         </nav>
-        <br></br>
-        <br></br>
+        <br />
+        <br />
 
         <h1 className="text-5xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500">
           Pitch
         </h1>
-        <br></br>
+        <br />
 
         <div className="flex gap-8">
           <div className="flex-1">
@@ -210,26 +234,32 @@ export default function PitchPage() {
 
             {/* Sponsor images */}
             <div className="flex justify-center gap-8 mt-12">
-              {['images/rbc.png', 'images/google.png', 'images/password.png'].map((img, index) => (
-                <div
-                  key={index}
-                  className="w-36 h-36 rounded-full overflow-hidden relative hover:ring-2 hover:ring-green-500 transition-all bg-white p-2"
-                >
-                  <Image
-                    src={`/${img}`}
-                    alt={img.split('/').pop()?.split('.')[0] || ''}
-                    fill
-                    style={{ objectFit: 'contain' }}
-              
-                  />
-                </div>
-              ))}
+              {['images/rbc.png', 'images/google.png', 'images/password.png'].map((img, index) => {
+                // Determine the speaker name based on the image
+                const speakerName = Object.keys(speakerToImageMap).find(key => speakerToImageMap[key] === img.replace('images/', ''));
+                
+                return (
+                  <div
+                    key={index}
+                    className={`w-36 h-36 rounded-full overflow-hidden relative hover:ring-2 hover:ring-green-500 transition-all p-2 ${
+                      speakerName === currentSpeaker ? 'ring-4 ring-yellow-500' : 'bg-white'
+                    }`}
+                  >
+                    <Image
+                      src={`/${img}`}
+                      alt={img.split('/').pop()?.split('.')[0] || ''}
+                      fill
+                      style={{ objectFit: 'contain' }}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Transcript */}
           <div className="flex-1">
-            <br></br>
+            <br />
             <h2 className="text-2xl font-semibold text-white mb-2">Transcript</h2>
             <div className="bg-[#1c1b2b] p-4 rounded-md h-[300px] overflow-y-auto text-white">
               {transcript.map((entry, i) => (

@@ -33,7 +33,7 @@ whisper_model = WhisperModel(
 )
 
 # Optionally, initialize ElevenLabs for TTS
-# elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
+elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
 # Load personalities (with multi-route prompt)
 personalities = get_personality_chains(OPENAI_API_KEY)
@@ -63,16 +63,16 @@ class NonStreamingCallbackHandler(BaseCallbackHandler):
 # # -------------------------------------------------
 # # Optional TTS
 # # -------------------------------------------------
-# async def generate_and_play_audio(text: str, voice_id: str):
-#     try:
-#         audio = elevenlabs_client.text_to_speech.convert(
-#             text=text,
-#             voice_id=voice_id,
-#             model_id="eleven_flash_v2"
-#         )
-#         await asyncio.to_thread(play, audio)
-#     except Exception as e:
-#         print(f"TTS Error: {e}")
+async def generate_and_play_audio(text: str, voice_id: str):
+    try:
+        audio = elevenlabs_client.text_to_speech.convert(
+            text=text,
+            voice_id=voice_id,
+            model_id="eleven_flash_v2"
+        )
+        await asyncio.to_thread(play, audio)
+    except Exception as e:
+        print(f"TTS Error: {e}")
 
 # -------------------------------------------------
 # parse_personality_response
@@ -115,7 +115,7 @@ async def get_response(personality_name, history, user_input):
         return 2, None, "Personality not found."
 
     chain = personality_data["chain"]
-    # voice_id = personality_data["voice_id"]
+    voice_id = personality_data["voice_id"]
 
     handler = NonStreamingCallbackHandler()
     try:
