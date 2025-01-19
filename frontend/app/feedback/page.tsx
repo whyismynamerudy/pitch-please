@@ -1,9 +1,10 @@
+"use client"
+
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision"
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 
 // Define interfaces for our data structure
 interface Score {
@@ -57,6 +58,11 @@ interface AnalysisData {
     time: string;
     emotions: Record<string, number>;
   };
+}
+
+interface AD {
+  analysis_result: Record<string, any>
+  evaluation_response: AnalysisData
 }
 
 interface Company {
@@ -154,18 +160,32 @@ function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCardProps) 
 
 export default function FeedbackPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
-  const searchParams = useSearchParams()
+  const [analysisData, setAnalysisData] = useState<AD | null>(null)
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const data = searchParams.get('data')
-    if (data) {
-      setAnalysisData(JSON.parse(data) as AnalysisData)
+    try {
+      // Retrieve data from localStorage
+      const storedData = localStorage.getItem('pitchAnalysis');
+      if (storedData) {
+        const parsedData = JSON.parse(storedData) as AD;
+        setAnalysisData(parsedData);
+        // Clean up localStorage after retrieving the data
+        localStorage.removeItem('pitchAnalysis');
+      } else {
+        setError('No analysis data found. Please complete a pitch session first.');
+      }
+    } catch (e) {
+      setError('Error loading analysis data. Please try again.');
+      console.error('Error parsing analysis data:', e);
+    } finally {
+      setIsLoading(false);
     }
-  }, [searchParams])
+  }, []);
 
   // Transform judges' evaluations into company data format
-  const companies: Company[] = analysisData ? analysisData.evaluation_results.main_evaluation.individual_evaluations.map((evaluation) => ({
+  const companies: Company[] = analysisData ? analysisData.evaluation_response.evaluation_results.main_evaluation.individual_evaluations.map((evaluation) => ({
     id: evaluation.judge_name,
     name: evaluation.company,
     logo: `/images/${evaluation.judge_name.toLowerCase().replace(' ', '')}.png`,
@@ -176,7 +196,7 @@ export default function FeedbackPage() {
   })) : [];
 
   // Calculate overall metrics
-  const consensusScores = analysisData?.evaluation_results.main_evaluation.consensus_evaluation.final_scores
+  const consensusScores = analysisData?.evaluation_response.evaluation_results.main_evaluation.consensus_evaluation.final_scores
   const averageScore = consensusScores ? 
     Object.values(consensusScores).reduce((a, b) => a + b, 0) / Object.keys(consensusScores).length : 0
 
@@ -235,7 +255,7 @@ export default function FeedbackPage() {
             <div className="bg-white/5 backdrop-blur-md rounded-lg p-6">
               <h3 className="text-2xl font-semibold mb-4">Judges Consensus</h3>
               <p className="text-gray-300 leading-relaxed">
-                {analysisData?.evaluation_results.main_evaluation.consensus_evaluation.discussion_summary}
+                {analysisData?.evaluation_response.evaluation_results.main_evaluation.consensus_evaluation.discussion_summary}
               </p>
             </div>
           </div>

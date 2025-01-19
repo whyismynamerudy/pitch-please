@@ -397,53 +397,137 @@ def create_transcript_json(transcript_data, wpm, time_spent, emotion_data=None):
         return None
     return data
 
+
 @app.post("/generate_analysis")
 async def generate_analysis(data: TimerData):
     """
     Generate transcript analysis -> pass to evaluate_pitch.
     """
     try:
-        # time
+        # Calculate time
         t_spent = calculate_time_spent(data.time_left)
-        wpm=150.0
-        # read emotion
-        emotion_data=None
-        try:
-            with open("emotion_data.json","r") as f:
-                emotion_data=json.load(f)
-        except FileNotFoundError:
-            print("No emotion data found.")
 
-        res = create_transcript_json(data.transcript, wpm, t_spent, emotion_data)
-        # build pitch eval
+        print("calculate time spent done")
+        
+        # Calculate WPM
+        total_words = sum(len(msg['text'].split()) for msg in data.transcript)
+        time_in_minutes = (300 - data.time_left) / 60  # Convert seconds to minutes
+        wpm = total_words / time_in_minutes if time_in_minutes > 0 else 0
+
+        print("calcualted wpm done")
+        
+        # Read emotion data with proper error handling
+        emotion_data = {}
+        try:
+            with open("emotion_data.json", "r") as f:
+                emotion_data = json.load(f)
+        except FileNotFoundError:
+            print("No emotion data found - continuing without emotion data")
+        except json.JSONDecodeError:
+            print("Invalid emotion data format - continuing without emotion data")
+
+        print("read emotion data")
+            
+        # Create transcript JSON
+        transcript_data = create_transcript_json(data.transcript, wpm, t_spent, emotion_data)
+        if not transcript_data:
+            return JSONResponse({
+                "error": "Failed to create transcript analysis"
+            }, status_code=500)
+        
+        print("transcript data done")
+            
+        # Build pitch evaluation object
         combined = "\n".join([f"{x['speaker']}: {x['text']}" for x in data.transcript])
         pitch_eval = PitchEvaluation(
             transcript=combined,
             wpm=wpm,
             time=t_spent,
-            emotions=emotion_data or {}
+            emotions=emotion_data
         )
-        # call evaluate
-        url="http://127.0.0.1:8000/evaluate_pitch"
-        async with aiohttp.ClientSession() as sess:
-            async with sess.post(url, json=pitch_eval.dict()) as resp:
-                eval_res = await resp.json()
-
-        print("Pitch Evaluation Response:")
-        print(json.dumps(eval_res, indent=4))
-
-        if res:
+        
+        # Call evaluate_pitch with proper error handling
+        try:
+            async with aiohttp.ClientSession() as sess:
+                async with sess.post(
+                    "http://127.0.0.1:8000/evaluate_pitch",
+                    json=pitch_eval.dict()
+                ) as resp:
+                    if resp.status != 200:
+                        error_text = await resp.text()
+                        return JSONResponse({
+                            "error": f"Evaluation failed with status {resp.status}: {error_text}"
+                        }, status_code=500)
+                    eval_res = await resp.json()
+        except aiohttp.ClientError as e:
             return JSONResponse({
-                "analysis_result": res,
-                "evaluation_response": eval_res
-            })
-        else:
-            return JSONResponse({
-                "error":"Failed to generate analysis"
+                "error": f"Failed to connect to evaluation service: {str(e)}"
             }, status_code=500)
+        
+        print("called eval pitch")
+        
+        # Return successful response
+        return JSONResponse({
+            "analysis_result": transcript_data,
+            "evaluation_response": eval_res
+        })
 
     except Exception as e:
-        return JSONResponse({"error":str(e)}, status_code=500)
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error in generate_analysis: {error_trace}")
+        return JSONResponse({
+            "error": str(e),
+            "trace": error_trace
+        }, status_code=500)
+
+# @app.post("/generate_analysis")
+# async def generate_analysis(data: TimerData):
+#     """
+#     Generate transcript analysis -> pass to evaluate_pitch.
+#     """
+#     try:
+#         # time
+#         t_spent = calculate_time_spent(data.time_left)
+#         wpm=150.0
+#         # read emotion
+#         emotion_data=None
+#         try:
+#             with open("emotion_data.json","r") as f:
+#                 emotion_data=json.load(f)
+#         except FileNotFoundError:
+#             print("No emotion data found.")
+
+#         res = create_transcript_json(data.transcript, wpm, t_spent, emotion_data)
+#         # build pitch eval
+#         combined = "\n".join([f"{x['speaker']}: {x['text']}" for x in data.transcript])
+#         pitch_eval = PitchEvaluation(
+#             transcript=combined,
+#             wpm=wpm,
+#             time=t_spent,
+#             emotions=emotion_data or {}
+#         )
+#         # call evaluate
+#         url="http://127.0.0.1:8000/evaluate_pitch"
+#         async with aiohttp.ClientSession() as sess:
+#             async with sess.post(url, json=pitch_eval.dict()) as resp:
+#                 eval_res = await resp.json()
+
+#         print("Pitch Evaluation Response:")
+#         print(json.dumps(eval_res, indent=4))
+
+#         if res:
+#             return JSONResponse({
+#                 "analysis_result": res,
+#                 "evaluation_response": eval_res
+#             })
+#         else:
+#             return JSONResponse({
+#                 "error":"Failed to generate analysis"
+#             }, status_code=500)
+
+#     except Exception as e:
+#         return JSONResponse({"error":str(e)}, status_code=500)
 
 @app.post("/evaluate_pitch")
 async def evaluate_pitch(data: PitchEvaluation):
