@@ -17,13 +17,14 @@ import asyncio
 from judges.evaluation import EnhancedEvaluator
 import os
 
-# Import chatbot components
+# Import chatbot pieces
 from voice.chatbot import (
     decide_personality,
     get_response,
     record_audio,
     transcribe_audio_async,
-    PERSONALITY_NAMES
+    PERSONALITY_NAMES,
+    set_last_judge  # We'll use this to track the last judge
 )
 from langchain.schema import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
@@ -40,45 +41,47 @@ class PitchEvaluation(BaseModel):
 
 app = FastAPI()
 
-# Enable CORS for all origins (adjust as needed for security)
+# CORS Setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Adjust as needed for security
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
-# == EMOTION RECOGNITION ==
+# == EMOTION RECOGNITION GLOBALS ==
 is_recording = False
 video_capture = None
 emotion_counts = defaultdict(int)
 total_frames = 0
-threshold = 5.0  # Percentage threshold to record emotion data
+threshold = 5.0  # threshold for including emotions
 
-# == CHATBOT STATE ==
+# == CHATBOT / Q&A GLOBALS ==
 chat_history = ChatMessageHistory()
 transcript_messages = []
-chat_active = False      # Indicates if chat is active
-qna_mode = False         # Indicates if Q&A mode is active
+chat_active = False
+qna_mode = False
 
-# == Q&A Lock to Prevent Multiple Q&A Loops ==
+# Lock to prevent multiple Q&A loops
 qna_lock = asyncio.Lock()
 
-# == Pitch Capture Synchronization ==
+# Pitch capture event to ensure Q&A doesn't start prematurely
 pitch_captured_event = asyncio.Event()
 
-# == WebSockets for transcript streaming ==
+# WebSockets that receive transcript updates
 transcript_websockets = []
 
 @app.websocket("/ws")
 async def webcam_feed(websocket: WebSocket):
     """
-    WebSocket endpoint for streaming webcam feed with emotion detection.
+    Streams webcam feed + emotion detection over WebSocket.
     """
     global is_recording, video_capture, emotion_counts, total_frames
 
     await websocket.accept()
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    face_cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    )
     video_capture = cv2.VideoCapture(0)
 
     if not video_capture.isOpened():
@@ -97,27 +100,25 @@ async def webcam_feed(websocket: WebSocket):
                 break
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
-
+            faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30,30))
             if len(faces) > 0:
                 x, y, w, h = faces[0]
                 roi = frame[y:y+h, x:x+w]
                 try:
-                    result = DeepFace.analyze(roi, actions=['emotion'], enforce_detection=False)
-                    emotions = result[0]['emotion']
-                    dominant_emotion = max(emotions.items(), key=lambda x: x[1])[0]
-                    emotion_counts[dominant_emotion] += 1
+                    result = DeepFace.analyze(roi, actions=["emotion"], enforce_detection=False)
+                    dom_emotion = max(result[0]["emotion"].items(), key=lambda x: x[1])[0]
+                    emotion_counts[dom_emotion] += 1
                     total_frames += 1
 
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                    cv2.putText(frame, dominant_emotion, (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0,255,0), 2)
+                    cv2.putText(frame, dom_emotion, (x,y-10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
                 except Exception as e:
                     print(f"Emotion analysis error: {e}")
 
             _, buf = cv2.imencode(".jpg", frame)
             await websocket.send_bytes(buf.tobytes())
-            await asyncio.sleep(0.03)  # Approximately 30 FPS
+            await asyncio.sleep(0.03)
 
     except WebSocketDisconnect:
         print("Video WebSocket disconnected.")
@@ -130,7 +131,7 @@ async def webcam_feed(websocket: WebSocket):
 @app.websocket("/ws_transcript")
 async def transcript_feed(websocket: WebSocket):
     """
-    WebSocket endpoint for streaming transcript messages to the frontend.
+    WebSocket for sending transcript messages to the frontend in real-time.
     """
     await websocket.accept()
     transcript_websockets.append(websocket)
@@ -138,377 +139,281 @@ async def transcript_feed(websocket: WebSocket):
 
     try:
         while True:
-            await websocket.receive_text()  # Keep connection alive
+            await websocket.receive_text()  # keep connection alive
     except WebSocketDisconnect:
         transcript_websockets.remove(websocket)
         print("Transcript WebSocket disconnected.")
 
 def save_emotion_data():
     """
-    Saves the aggregated emotion data to a JSON file.
+    Saves aggregated emotion data to 'emotion_data.json'.
     """
     global total_frames, emotion_counts, threshold
     if total_frames > 0:
-        percentages = {em: (cnt / total_frames) * 100 for em, cnt in emotion_counts.items()}
-        filtered = {em: pct for em, pct in percentages.items() if pct >= threshold}
-        sorted_emotions = dict(sorted(filtered.items(), key=lambda x: x[1], reverse=True))
-        with open("emotion_data.json", "w") as f:
+        percentages = {em: (cnt / total_frames)*100 for em,cnt in emotion_counts.items()}
+        filtered = {k:v for k,v in percentages.items() if v >= threshold}
+        sorted_emotions = dict(sorted(filtered.items(), key=lambda x:x[1], reverse=True))
+        with open("emotion_data.json","w") as f:
             json.dump(sorted_emotions, f, indent=4)
         print("Saved emotion_data.json")
 
-# ================================
-# Chatbot Endpoints
-# ================================
-# Add this Pydantic model for request validation
+# ---------------------------
+# ANALYSIS + TIMER ENDPOINTS
+# ---------------------------
 class TimerData(BaseModel):
     time_left: int
-    transcript: list[dict[str, str]]  # List of transcript entries with speaker and text
+    transcript: list[dict[str, str]]
 
 def calculate_time_spent(time_left: int) -> str:
-    """
-    Convert time left (in seconds) to time spent format (MM:SS)
-    Total time is 5 minutes (300 seconds)
-    """
-    total_seconds = 300  # 5 minutes
-    time_spent = total_seconds - time_left
-    minutes = time_spent // 60
-    seconds = time_spent % 60
-    return f"{minutes}:{str(seconds).zfill(2)}"
+    total = 300
+    spent = total - time_left
+    mm = spent // 60
+    ss = spent % 60
+    return f"{mm}:{str(ss).zfill(2)}"
 
-def create_transcript_json(transcript_data: list, wpm: float, time_spent: str, emotion_data: dict = None) -> dict:
-    """
-    Create analysis JSON combining transcript, WPM, time spent, and emotion data
-    """
-    # Format transcript data into a single string
-    transcript_text = "\n".join([f"{entry['speaker']}: {entry['text']}" for entry in transcript_data])
-    
+def create_transcript_json(transcript_data, wpm, time_spent, emotion_data=None):
+    txt = "\n".join([f"{x['speaker']}: {x['text']}" for x in transcript_data])
     data = {
-        "transcript": transcript_text,
-        "wpm": float(wpm),
+        "transcript": txt,
+        "wpm": wpm,
         "time": time_spent
     }
-    
     if emotion_data:
         data["emotions"] = emotion_data
-    
-    # Save to file
+
     try:
-        with open("transcript_analysis.json", 'w') as f:
+        with open("transcript_analysis.json","w") as f:
             json.dump(data, f, indent=4)
-        print(f"Analysis saved to: transcript_analysis.json")
+        print("Analysis saved to transcript_analysis.json")
     except Exception as e:
         print(f"Error saving analysis: {e}")
         return None
-        
     return data
 
 @app.post("/generate_analysis")
 async def generate_analysis(data: TimerData):
     """
-    Generate analysis JSON using:
-    - Transcript from frontend
-    - Emotions from emotion_data.json
-    - Time spent calculated from frontend timer
-    - Hardcoded WPM of 150
+    Summarize the entire transcript, WPM, timeSpent, plus optional emotion data.
+    Then send pitch to /evaluate_pitch for further analysis.
     """
     try:
-        # Calculate time spent from time left
         time_spent = calculate_time_spent(data.time_left)
-        
-        # Hardcoded WPM
-        wpm = 150.0
-        
-        # Read emotion data if exists
+        wpm = 150.0  # fixed
+        # read emotion data if present
         emotion_data = None
         try:
-            with open("emotion_data.json", "r") as f:
+            with open("emotion_data.json","r") as f:
                 emotion_data = json.load(f)
         except FileNotFoundError:
             print("No emotion data found")
-        
-        # Generate analysis JSON (unchanged functionality)
-        result = create_transcript_json(
-            transcript_data=data.transcript,
-            wpm=wpm,
-            time_spent=time_spent,
-            emotion_data=emotion_data
-        )
-        
-        # Create a PitchEvaluation object
-        transcript_text = "\n".join([f"{entry['speaker']}: {entry['text']}" for entry in data.transcript])
-        pitch_evaluation = PitchEvaluation(
-            transcript=transcript_text,
+
+        # local analysis
+        result = create_transcript_json(data.transcript, wpm, time_spent, emotion_data)
+        # build pitch eval
+        combined_txt = "\n".join([f"{x['speaker']}: {x['text']}" for x in data.transcript])
+        pitch_eval = PitchEvaluation(
+            transcript=combined_txt,
             wpm=wpm,
             time=time_spent,
             emotions=emotion_data or {}
         )
-        
-        # Send PitchEvaluation object to evaluate_pitch function
-        evaluate_pitch_url = "http://127.0.0.1:8000/evaluate_pitch"
+        # send to /evaluate_pitch
+        eval_url = "http://127.0.0.1:8000/evaluate_pitch"
         async with aiohttp.ClientSession() as session:
-            async with session.post(evaluate_pitch_url, json=pitch_evaluation.dict()) as resp:
+            async with session.post(eval_url, json=pitch_eval.dict()) as resp:
                 evaluation_response = await resp.json()
-        
-        # Print the evaluation response in the terminal
+
         print("Pitch Evaluation Response:")
         print(json.dumps(evaluation_response, indent=4))
-        
-        # Return the original analysis result along with evaluation response
+
         if result:
-            return JSONResponse(content={
+            return JSONResponse({
                 "analysis_result": result,
                 "evaluation_response": evaluation_response
             })
         else:
             return JSONResponse(
-                content={"error": "Failed to generate analysis"},
+                {"error":"Failed to generate analysis"},
                 status_code=500
             )
     except Exception as e:
-        return JSONResponse(
-            content={"error": str(e)},
-            status_code=500
-        )
+        return JSONResponse({"error":str(e)}, status_code=500)
 
-    
+# ---------------------------
+# STOP / START
+# ---------------------------
 @app.get("/stop")
 async def stop_all():
-    """
-    Endpoint to stop the chat session and emotion detection.
-    """
     global is_recording, chat_active, qna_mode
     is_recording = False
     chat_active = False
     qna_mode = False
 
-    # Set the event to unblock any waiting coroutines
-    pitch_captured_event.set()
-
-    return JSONResponse({"message": "Session stopped."})
+    pitch_captured_event.set()  # unlock any waiting tasks
+    return JSONResponse({"message":"Session stopped."})
 
 @app.get("/start_chat")
 async def start_chat(bg: BackgroundTasks):
-    """
-    Starts the chat session by:
-    1. Clearing old transcript and chat history.
-    2. Setting chat_active to True.
-    3. Capturing the user's pitch before Q&A begins.
-    """
-    global chat_active, qna_mode
+    global chat_active, qna_mode, chat_history, transcript_messages
     chat_active = True
     qna_mode = False
-
-    global chat_history, transcript_messages
     chat_history = ChatMessageHistory()
     transcript_messages = []
 
-    # Reset the pitch captured event
     pitch_captured_event.clear()
-
-    # Start capturing the pitch
     bg.add_task(pitch_capture_task)
-    return {"message": "Chat session started (capturing pitch)."}
+    return {"message":"Chat session started (capturing pitch)."}
 
 async def pitch_capture_task():
-    """
-    Captures the user's pitch and sends it to the frontend.
-    """
-    global chat_history, transcript_messages, chat_active
+    global chat_active, chat_history, transcript_messages
     if not chat_active:
         return
-
-    # Capture the pitch with silence-based recording
-    pitch_audio = await asyncio.to_thread(record_audio, rate=16000, chunk=220, silence_threshold=100, silence_duration=2)
-    pitch_text = await transcribe_audio_async(pitch_audio)
+    audio_np = await asyncio.to_thread(record_audio,16000,220,100,2)
+    pitch_text = await transcribe_audio_async(audio_np)
     pitch_text = pitch_text.strip()
-
     if pitch_text:
-        # Add pitch to chat history and transcript
         chat_history.add_message(HumanMessage(content=pitch_text))
         transcript_messages.append(("User", pitch_text))
-        await broadcast_transcript(("User", pitch_text))
+        await broadcast_transcript(("User",pitch_text))
     else:
-        # Inform frontend that no pitch was captured
-        await broadcast_transcript(("System", "No pitch captured."))
-
-    # Set the event to indicate that pitch has been captured
+        await broadcast_transcript(("System","No pitch captured."))
     pitch_captured_event.set()
 
+# ---------------------------
+# BEGIN Q&A
+# ---------------------------
 @app.get("/begin_qna")
 async def begin_qna(bg: BackgroundTasks):
-    """
-    Initiates the Q&A session by:
-    1. Setting qna_mode to True.
-    2. Starting the Q&A loop.
-    """
     global qna_mode
-
-    # Attempt to acquire the Q&A lock to prevent multiple loops
     if qna_lock.locked():
-        return JSONResponse({"message": "Q&A session is already active."}, status_code=400)
-
+        return JSONResponse({"message":"Q&A session already active"}, status_code=400)
     qna_mode = True
     bg.add_task(qna_loop)
-    return {"message": "Q&A mode started. Judge will speak first."}
+    return {"message":"Q&A mode started. Judge will speak first."}
 
 async def qna_loop():
-    """
-    Handles the Q&A session with strict turn-taking:
-    User speaks first -> Judge responds -> User responds -> Judge responds -> Repeat.
-    Ensures routing up to two personalities.
-    """
     global chat_active, qna_mode, chat_history, transcript_messages
-
     async with qna_lock:
         try:
-            # Wait until the pitch has been captured
+            # wait for pitch
             await pitch_captured_event.wait()
 
             while chat_active and qna_mode:
-                # Determine if it's the first interaction after the pitch
-                if len(chat_history.messages) == 1:  # Only pitch is present
-                    # Decide which personality should speak first
-                    chosen_personality = await decide_personality("Start Q&A")
-                    print(f"[Q&A] Chosen Personality: {chosen_personality}")
-
-                    # Get judge's response
-                    route, target, message = await get_response(
-                        personality_name=chosen_personality,
+                # If we only have 1 message => it's just user pitch => judge starts
+                if len(chat_history.messages) == 1:
+                    # decide personality
+                    chosen = await decide_personality("Start Q&A")
+                    route, target, msg = await get_response(
+                        personality_name=chosen,
                         history=formatted_history(chat_history),
                         user_input="Start Q&A"
                     )
+                    chat_history.add_message(AIMessage(content=msg))
+                    transcript_messages.append((chosen,msg))
+                    await broadcast_transcript((chosen,msg))
 
-                    # Add judge's response to chat history and broadcast
-                    chat_history.add_message(AIMessage(content=message))
-                    transcript_messages.append((chosen_personality, message))
-                    await broadcast_transcript((chosen_personality, message))
-
-                    # Handle routing if Route=1
                     if route == 1 and target in PERSONALITY_NAMES:
-                        # Get response from the target personality
-                        route2, target2, message2 = await get_response(
+                        route2, tgt2, msg2 = await get_response(
                             personality_name=target,
                             history=formatted_history(chat_history),
-                            user_input=message
+                            user_input=msg
                         )
+                        chat_history.add_message(AIMessage(content=msg2))
+                        transcript_messages.append((target,msg2))
+                        await broadcast_transcript((target,msg2))
 
-                        # Add the second judge's response to chat history and broadcast
-                        chat_history.add_message(AIMessage(content=message2))
-                        transcript_messages.append((target, message2))
-                        await broadcast_transcript((target, message2))
-
-                # Wait for user to respond (2 seconds of silence)
-                user_audio = await asyncio.to_thread(record_audio, rate=16000, chunk=220, silence_threshold=100, silence_duration=2)
+                # user speaks
+                user_audio = await asyncio.to_thread(record_audio,16000,220,100,2)
                 user_text = await transcribe_audio_async(user_audio)
                 user_text = user_text.strip()
-
                 if not user_text:
-                    continue  # Ignore empty inputs
+                    continue
 
-                # Add user message to chat history and broadcast
                 chat_history.add_message(HumanMessage(content=user_text))
-                transcript_messages.append(("User", user_text))
-                await broadcast_transcript(("User", user_text))
+                transcript_messages.append(("User",user_text))
+                await broadcast_transcript(("User",user_text))
 
-                # Decide which personality should respond based on user input
+                # which personality?
                 chosen_personality = None
+                # if user references a specific name
                 for p in PERSONALITY_NAMES:
                     if p.lower() in user_text.lower():
                         chosen_personality = p
                         break
-
                 if not chosen_personality:
                     chosen_personality = await decide_personality(user_text)
 
-                print(f"[Q&A] Chosen Personality: {chosen_personality}")
-
-                # Get judge's response
-                route, target, message = await get_response(
+                route, target, msg = await get_response(
                     personality_name=chosen_personality,
                     history=formatted_history(chat_history),
                     user_input=user_text
                 )
+                chat_history.add_message(AIMessage(content=msg))
+                transcript_messages.append((chosen_personality,msg))
+                await broadcast_transcript((chosen_personality,msg))
 
-                # Add judge's response to chat history and broadcast
-                chat_history.add_message(AIMessage(content=message))
-                transcript_messages.append((chosen_personality, message))
-                await broadcast_transcript((chosen_personality, message))
-
-                # Handle routing if Route=1 (up to two personalities)
                 if route == 1 and target in PERSONALITY_NAMES:
-                    # Get response from the target personality
-                    route2, target2, message2 = await get_response(
+                    route2, tgt2, msg2 = await get_response(
                         personality_name=target,
                         history=formatted_history(chat_history),
-                        user_input=message
+                        user_input=msg
                     )
-
-                    # Add the second judge's response to chat history and broadcast
-                    chat_history.add_message(AIMessage(content=message2))
-                    transcript_messages.append((target, message2))
-                    await broadcast_transcript((target, message2))
+                    chat_history.add_message(AIMessage(content=msg2))
+                    transcript_messages.append((target,msg2))
+                    await broadcast_transcript((target,msg2))
 
         except Exception as e:
-            print(f"Error during Q&A loop: {e}")
-            await broadcast_transcript(("System", "An error occurred during the Q&A session."))
+            print(f"Error in Q&A loop: {e}")
+            await broadcast_transcript(("System","An error occurred during Q&A."))
         finally:
-            qna_mode = False  # Reset Q&A mode upon completion
+            qna_mode = False
 
+# ---------------------------
+# Utility: broadcast_transcript
+# ---------------------------
 async def broadcast_transcript(msg: tuple):
-    """
-    Sends a single transcript message to all connected frontend WebSocket clients.
-    """
     data = {"speaker": msg[0], "text": msg[1]}
-    remove_list = []
+    remove = []
     for ws in transcript_websockets:
         try:
             await ws.send_json(data)
         except:
-            remove_list.append(ws)
-    for ws in remove_list:
-        transcript_websockets.remove(ws)
+            remove.append(ws)
+    for dead in remove:
+        transcript_websockets.remove(dead)
 
 def formatted_history(chat_history: ChatMessageHistory) -> str:
-    """
-    Formats the chat history into a string suitable for the LLM.
-    """
-    history_str = ""
-    for message in chat_history.messages:
-        if isinstance(message, HumanMessage):
-            history_str += f"User: {message.content}\n"
-        elif isinstance(message, AIMessage):
-            history_str += f"Assistant: {message.content}\n"
-    return history_str
+    txt = ""
+    for m in chat_history.messages:
+        if isinstance(m, HumanMessage):
+            txt += f"User: {m.content}\n"
+        else:
+            txt += f"Assistant: {m.content}\n"
+    return txt
 
-
-
+# ---------------------------
+# EVALUATE PITCH
+# ---------------------------
 @app.post("/evaluate_pitch")
 async def evaluate_pitch(data: PitchEvaluation):
     """
-    Evaluates a pitch using AI judges and returns both results and captured output.
+    Evaluate pitch => returns results + captured logs
     """
     try:
-        # Create a string buffer to capture output
         output_buffer = io.StringIO()
         original_stdout = sys.stdout
         sys.stdout = output_buffer
 
-        # Initialize evaluator
         evaluator = EnhancedEvaluator(OPENAI_API_KEY)
-        
-        # Get rubric categories from the hardcoded rubric
         from judges.judges import EVALUATION_RUBRIC
         rubric_categories = list(EVALUATION_RUBRIC.keys())
-        
-        # Run evaluation
+
         evaluation_results = await evaluator.evaluate_project(data.transcript, rubric_categories)
-        
-        # Restore original stdout and get captured output
+
         sys.stdout = original_stdout
         captured_output = output_buffer.getvalue()
         output_buffer.close()
-        
-        # Return both results and captured output
+
         return JSONResponse({
             "success": True,
             "evaluation_results": evaluation_results,
@@ -521,11 +426,9 @@ async def evaluate_pitch(data: PitchEvaluation):
         })
 
     except Exception as e:
-        # Restore stdout in case of error
         sys.stdout = original_stdout
         if 'output_buffer' in locals():
             output_buffer.close()
-            
         return JSONResponse(
             status_code=500,
             content={
@@ -534,7 +437,6 @@ async def evaluate_pitch(data: PitchEvaluation):
                 "error_type": type(e).__name__
             }
         )
-
 
 if __name__ == "__main__":
     import uvicorn
