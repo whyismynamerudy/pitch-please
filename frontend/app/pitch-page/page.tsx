@@ -14,7 +14,7 @@ export default function PitchPage() {
 
   const videoRef = useRef<HTMLImageElement>(null);
   const [videoAvailable, setVideoAvailable] = useState(false); 
-  const [currentSpeaker, setCurrentSpeaker] = useState<string | null>(null); // New state for current speaker
+  const [currentSpeaker, setCurrentSpeaker] = useState<string | null>(null);
 
   const router = useRouter()
 
@@ -23,10 +23,9 @@ export default function PitchPage() {
     "RBC Judge": "rbc.png",
     "Google Judge": "google.png",
     "1Password Judge": "password.png",
-    // Add more mappings if you have additional judges
   };
 
-  // Timer
+  // Timer that stops if isSessionActive = false
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isSessionActive && time > 0) {
@@ -55,14 +54,14 @@ export default function PitchPage() {
     wsVideo.onmessage = (evt) => {
       if (videoRef.current) {
         videoRef.current.src = URL.createObjectURL(new Blob([evt.data], { type: 'image/jpeg' }));
-        setVideoAvailable(true); // Set video availability to true
+        setVideoAvailable(true);
       }
     };
     wsVideo.onerror = (err) => console.error("Video WS error:", err);
     wsVideo.onclose = () => {
       console.log("Video WS closed");
-      setVideoAvailable(false); // Reset video availability
-      setCurrentSpeaker(null); // Remove any highlights when video closes
+      setVideoAvailable(false);
+      setCurrentSpeaker(null);
     };
     setVideoWebSocket(wsVideo);
 
@@ -73,14 +72,12 @@ export default function PitchPage() {
       try {
         const msg = JSON.parse(evt.data);
         setTranscript(prev => [...prev, { speaker: msg.speaker, text: msg.text }]);
-
-        // Update currentSpeaker based on the new message
         if (msg.speaker in speakerToImageMap) {
           setCurrentSpeaker(msg.speaker);
         } else if (msg.speaker === "User" || msg.speaker === "User (Pitch)") {
-          setCurrentSpeaker(null); // Remove highlights when user speaks
+          setCurrentSpeaker(null);
         } else {
-          setCurrentSpeaker(null); // Default to no highlight for unknown speakers
+          setCurrentSpeaker(null);
         }
       } catch (e) {
         console.error('Transcript parse error:', e);
@@ -89,7 +86,7 @@ export default function PitchPage() {
     wsTx.onerror = (err) => console.error("Transcript WS error:", err);
     wsTx.onclose = () => {
       console.log("Transcript WS closed");
-      setCurrentSpeaker(null); // Remove highlights when transcript closes
+      setCurrentSpeaker(null);
     };
     setTranscriptWebSocket(wsTx);
 
@@ -104,15 +101,16 @@ export default function PitchPage() {
   }
 
   async function handleStop() {
+    // Immediately hide video from UI
     setVideoAvailable(false);
-    // First stop everything as before
+
+    // Call backend /stop to end everything
     const res = await fetch('http://127.0.0.1:8000/stop');
     const dat = await res.json();
     console.log('stop_all:', dat);
 
     let analysisData = '';
-  
-    // Generate analysis with current timer value and transcript
+    // Generate analysis
     try {
       const analysisRes = await fetch('http://127.0.0.1:8000/generate_analysis', {
         method: 'POST',
@@ -121,41 +119,40 @@ export default function PitchPage() {
         },
         body: JSON.stringify({
           time_left: time,
-          transcript: transcript  // Send the entire transcript array
+          transcript: transcript
         })
       });
-      
       analysisData = await analysisRes.json();
       console.log('Analysis generated:', analysisData);
     } catch (error) {
       console.error('Error generating analysis:', error);
     }
-
     localStorage.setItem('pitchAnalysis', JSON.stringify(analysisData));
-  
-    // Continue with cleanup as before
+
+    // Close websockets, clear transcript, and reset timer
     if (videoWebSocket) videoWebSocket.close();
     if (transcriptWebSocket) transcriptWebSocket.close();
-  
     setVideoWebSocket(null);
     setTranscriptWebSocket(null);
-    setIsSessionActive(false);
-    setTranscript([]);
-    setTime(300);
-    setCurrentSpeaker(null); // Remove all highlights
+
+    setIsSessionActive(false);  // stops the timer
+    setTranscript([]);          // remove transcript from UI
+    setTime(300);               // reset timer to 300
+    setCurrentSpeaker(null);
+
     if (videoRef.current) {
       videoRef.current.src = '';
     }
 
+    // Navigate to /feedback
     router.push('/feedback');
-
   }
 
   return (
     <div className="min-h-screen bg-[#14121f]">
       <div className="max-w-[1400px] mx-auto px-8">
-         {/* Updated Navbar */}
-         <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
+        {/* Navbar */}
+        <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
           <Link href="/">
             <Image 
               src="/images/logopitch.png"
@@ -237,9 +234,9 @@ export default function PitchPage() {
             {/* Sponsor images */}
             <div className="flex justify-center gap-8 mt-12">
               {['images/rbc.png', 'images/google.png', 'images/password.png'].map((img, index) => {
-                // Determine the speaker name based on the image
-                const speakerName = Object.keys(speakerToImageMap).find(key => speakerToImageMap[key] === img.replace('images/', ''));
-                
+                const speakerName = Object.keys(speakerToImageMap).find(
+                  key => speakerToImageMap[key] === img.replace('images/', '')
+                );
                 return (
                   <div
                     key={index}
