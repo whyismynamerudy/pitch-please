@@ -5,6 +5,18 @@ import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision"
 import Link from 'next/link'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 
 // Define interfaces for our data structure
 interface Score {
@@ -15,6 +27,10 @@ interface Score {
   theme_and_originality: number;
 }
 
+interface hi {
+  logo: string;
+  expandedImage: string;
+}
 interface Feedback {
   practicality_and_impact: string;
   pitching: string;
@@ -82,18 +98,52 @@ interface ExpandableCardProps {
 }
 
 function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCardProps) {
+  // Get the correct images based on company name
+  const getCompanyImages = (companyName: string) => {
+    switch (companyName) {
+      case 'Royal Bank of Canada':
+        return {
+          logo: '/images/rbc.png',
+          banner: '/images/rbcc.png'
+        };
+      case 'Google':
+        return {
+          logo: '/images/google.png',
+          banner: '/images/google2.webp'
+        };
+      case '1Password':
+        return {
+          logo: '/images/password.png',
+          banner: '/images/passwordd.png'
+        };
+      default:
+        return {
+          logo: '/images/rbc.png',
+          banner: '/images/rbcc.png'
+        };
+    }
+  };
+
+  const companyImages = getCompanyImages(company.name);
+  const scoreData = Object.entries(company.sections).map(([key, value]) => ({
+    name: key.replace(/([A-Z])/g, ' $1').trim(),
+    value: value
+  }));
+
   return (
     <motion.div
       layout
       onClick={onExpand}
-      className="bg-white/5 backdrop-blur-md rounded-lg overflow-hidden cursor-pointer hover:bg-white/10 transition-colors border border-white/10"
+      className={`bg-white/5 backdrop-blur-md rounded-lg overflow-hidden cursor-pointer transition-all duration-500 ${
+        isExpanded ? 'col-span-2' : ''
+      }`}
     >
       <motion.div layout className="p-6">
         {/* Company Header */}
         <div className="flex items-center gap-4 mb-6">
           <div className="w-[80px] h-[80px] flex-shrink-0">
             <Image
-              src={company.logo}
+              src={companyImages.logo}
               alt={`${company.name} logo`}
               width={80}
               height={80}
@@ -112,53 +162,222 @@ function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCardProps) 
           </div>
         </div>
 
-        {/* Expanded Content */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="space-y-6"
-        >
-          {/* Category Scores Grid */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {Object.entries(company.sections).map(([key, value]) => (
-              <div key={key} className="bg-white/5 rounded-lg p-4 text-center">
-                <h4 className="text-sm text-purple-300 capitalize mb-2">
-                  {key.replace(/([A-Z])/g, " $1")}
-                </h4>
-                <span className="text-2xl font-bold">{value.toFixed(1)}</span>
-              </div>
-            ))}
-          </div>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-8"
+          >
+            {/* Expanded Header Image */}
+            <div className="relative h-[200px] w-full rounded-lg overflow-hidden">
+              <Image
+                src={companyImages.banner}
+                alt={`${company.name} banner`}
+                fill
+                className="object-cover"
+              />
+            </div>
 
-          {/* Detailed Feedback */}
-          <div className="space-y-4">
-            {Object.entries(company.feedback).map(([key, value]) => (
-              <div key={key} className="bg-white/5 rounded-lg p-4">
-                <h4 className="text-lg font-medium text-purple-300 capitalize mb-2">
-                  {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}
-                </h4>
-                <p className="text-gray-300 leading-relaxed">{value}</p>
-              </div>
-            ))}
-          </div>
+            {/* Scores Chart */}
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={scoreData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                  <XAxis dataKey="name" stroke="#fff" />
+                  <YAxis stroke="#fff" domain={[0, 10]} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
+                  />
+                  <Bar dataKey="value" fill="#8884d8">
+                    {scoreData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={`hsl(${index * 50}, 70%, 60%)`} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
 
-          {/* Key Points */}
-          <div className="bg-white/5 rounded-lg p-4">
-            <h4 className="text-lg font-medium text-purple-300 mb-2">Key Points</h4>
-            <ul className="list-disc list-inside space-y-2">
-              {company.keyPoints.map((point: string, index: number) => (
-                <li key={index} className="text-gray-300">{point}</li>
+            {/* Feedback Sections */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Object.entries(company.feedback).map(([key, value]) => (
+                <div key={key} className="bg-white/5 rounded-lg p-6">
+                  <h4 className="text-lg font-medium text-purple-300 capitalize mb-3">
+                    {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                  </h4>
+                  <p className="text-gray-300 leading-relaxed">{value}</p>
+                </div>
               ))}
-            </ul>
-          </div>
-        </motion.div>
+            </div>
+
+            {/* Key Points */}
+            <div className="bg-white/5 rounded-lg p-6">
+              <h4 className="text-lg font-medium text-purple-300 mb-4">Key Points</h4>
+              <ul className="space-y-3">
+                {company.keyPoints.map((point, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <span className="text-purple-400 mt-1">•</span>
+                    <span className="text-gray-300">{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
     </motion.div>
-  )
+  );
+}
+
+function AnalysisSection({ analysisData }: { analysisData: AD | null }) {
+  if (!analysisData) return null;
+
+  const { emotions, wpm, time, transcript } = analysisData.analysis_results;
+  
+  // Transform emotions data for pie chart
+  const emotionsData = Object.entries(emotions).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    value: value
+  }));
+
+  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#a4de6c'];
+
+  return (
+    <div className="mb-12 space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Enhanced Speech Metrics */}
+        <div className="bg-white/5 backdrop-blur-md rounded-lg p-6">
+          <h3 className="text-2xl font-semibold mb-6">Speech Metrics</h3>
+          <div className="grid grid-cols-2 gap-8">
+            <div className="relative">
+              <div className="absolute inset-0 bg-purple-500/20 rounded-full animate-pulse" />
+              <div className="relative text-center p-6">
+                <div className="text-4xl font-bold mb-2">{wpm.toFixed(0)}</div>
+                <p className="text-purple-300">Words per Minute</p>
+              </div>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-pulse" />
+              <div className="relative text-center p-6">
+                <div className="text-4xl font-bold mb-2">{time}</div>
+                <p className="text-blue-300">Duration</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Emotions Chart */}
+        <div className="bg-white/5 backdrop-blur-md rounded-lg p-6">
+          <h3 className="text-2xl font-semibold mb-4">Emotional Analysis</h3>
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={emotionsData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {emotionsData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            {emotionsData.map((emotion, index) => (
+              <div key={emotion.name} className="flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full" 
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                />
+                <span className="text-sm">{emotion.name}: {emotion.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Transcript */}
+      <div className="bg-white/5 backdrop-blur-md rounded-lg p-6">
+        <h3 className="text-2xl font-semibold mb-4">Transcript</h3>
+        <p className="text-gray-300 whitespace-pre-line">{transcript}</p>
+      </div>
+    </div>
+  );
+}
+
+function ConsensusSection({ consensusData, finalScores }: { consensusData: string, finalScores: Score }) {
+  const sections = consensusData.split('##').filter(Boolean);
+  const scoreData = Object.entries(finalScores).map(([key, value]) => ({
+    name: key.replace(/([A-Z])/g, ' $1').trim(),
+    value: value
+  }));
+  
+  return (
+    <div className="space-y-8">
+      {/* Consensus Scores Visualization */}
+      <div className="bg-white/5 backdrop-blur-md rounded-lg p-6">
+        <h3 className="text-2xl font-semibold mb-6">Consensus Scores</h3>
+        <div className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={scoreData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+              <XAxis dataKey="name" stroke="#fff" />
+              <YAxis stroke="#fff" domain={[0, 10]} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
+              />
+              <Bar dataKey="value" fill="#8884d8">
+                {scoreData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={`hsl(${index * 50}, 70%, 60%)`} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Discussion Points */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {sections.map((section) => {
+          const [title, content] = section.split(':').map(s => s.trim());
+          return (
+            <div key={title} className="bg-white/5 backdrop-blur-md rounded-lg p-6">
+              <h4 className="text-xl font-medium text-purple-300 mb-3 capitalize">
+                {title.replace('Discussion Summary', '')}
+              </h4>
+              <p className="text-gray-300 leading-relaxed">{content}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function FeedbackPage() {
+  const hi = [
+    {
+      logo: '/images/rbc.png',
+    expandedImage: '/images/rbcc.png',
+    },
+    {
+      logo: '/images/google.png',
+      expandedImage: '/images/google2.webp',
+    },
+    {
+      logo: '/images/password.png',
+      expandedImage: '/images/passwordd.png',
+    }
+
+  ]
+
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [analysisData, setAnalysisData] = useState<AD | null>(null)
   const [error, setError] = useState<string | null>(null);
@@ -250,8 +469,8 @@ export default function FeedbackPage() {
             </button>
           </div>
 
-          {/* General Consensus Section */}
-          <div className="mb-12">
+           {/* General Consensus Section */}
+           <div className="mb-12">
             <h2 className="text-3xl font-semibold mb-6 text-center">Overall Performance</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 text-center">
@@ -269,19 +488,28 @@ export default function FeedbackPage() {
                 </span>
               </div>
             </div>
+
+          {/* Analysis Section */}
+          <section className="mb-12">
+            <h2 className="text-3xl font-semibold mb-6">Analysis Results</h2>
+            <AnalysisSection analysisData={analysisData} />
+          </section>
+
+         
             
-            {/* Judges Consensus */}
-            <div className="bg-white/5 backdrop-blur-md rounded-lg p-6">
-              <h3 className="text-2xl font-semibold mb-4">Judges Consensus</h3>
-              <p className="text-gray-300 leading-relaxed">
-                {analysisData?.evaluation_response.evaluation_results.main_evaluation.consensus_evaluation.discussion_summary}
-              </p>
+            {/* Updated Consensus Section */}
+            <div className="mb-12">
+              <h2 className="text-3xl font-semibold mb-6">Judges Consensus</h2>
+              <ConsensusSection 
+                consensusData={analysisData?.evaluation_response.evaluation_results.main_evaluation.consensus_evaluation.discussion_summary || ''}
+                finalScores={analysisData?.evaluation_response.evaluation_results.main_evaluation.consensus_evaluation.final_scores || {}}
+              />
             </div>
           </div>
 
           {/* Company Feedback Cards */}
           <h2 className="text-3xl font-semibold mb-6">Detailed Company Feedback</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
             {companies.map((company) => (
               <ExpandableCard
                 key={company.id}

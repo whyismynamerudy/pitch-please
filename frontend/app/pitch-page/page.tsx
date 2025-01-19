@@ -3,11 +3,14 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import LoadingAnalysis from '@/components/loading-analysis';
 
 export default function PitchPage() {
   const [time, setTime] = useState(300);
   const [videoWebSocket, setVideoWebSocket] = useState<WebSocket | null>(null);
   const [transcriptWebSocket, setTranscriptWebSocket] = useState<WebSocket | null>(null);
+
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
@@ -103,8 +106,8 @@ export default function PitchPage() {
   async function handleStop() {
     // Immediately hide video from UI
     setVideoAvailable(false);
-
-    // Call backend /stop to end everything
+    setIsAnalyzing(true);
+    // First stop everything as before
     const res = await fetch('http://127.0.0.1:8000/stop');
     const dat = await res.json();
     console.log('stop_all:', dat);
@@ -144,12 +147,14 @@ export default function PitchPage() {
       videoRef.current.src = '';
     }
 
-    // Navigate to /feedback
+    setIsAnalyzing(false);
+
     router.push('/feedback');
   }
 
   return (
     <div className="min-h-screen bg-[#14121f]">
+      {isAnalyzing && <LoadingAnalysis />}
       <div className="max-w-[1400px] mx-auto px-8">
         {/* Navbar */}
         <nav className="flex justify-between items-center p-6 max-w-[1400px] mx-auto">
