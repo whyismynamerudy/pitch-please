@@ -1,12 +1,12 @@
 {
-    "transcript": "User (Pitch): Say something when you press stop and shift.\nGoogle Judge: Could you elaborate on the specific user experience goals you have in mind for the application, particularly regarding accessibility and performance metrics?",
-    "wpm": 150.0,
-    "time": "0:10",
+    "transcript": "User (Pitch): Hi, how are you? I'm here to give a speech.\nGoogle Judge: Thank you for sharing your pitch! To better understand your speech, could you elaborate on how you plan to ensure scalability and accessibility in your application or system?",
+    "wpm": 84.44444444444444,
+    "time": "0:27",
     "emotions": {
-        "neutral": 36.92528735632184,
-        "happy": 30.31609195402299,
-        "disgust": 17.24137931034483,
-        "fear": 8.333333333333332,
-        "surprise": 5.747126436781609
+        "happy": 28.666666666666668,
+        "fear": 26.0,
+        "neutral": 26.0,
+        "surprise": 6.666666666666667,
+        "angry": 6.666666666666667
     }
 }

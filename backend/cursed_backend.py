@@ -282,6 +282,11 @@ async def qna_loop():
                         transcript_messages.append((target, message2))
                         await broadcast_transcript((target, message2))
 
+                        # --- ADDED CODE BELOW ---
+                        if target in judge_voices:
+                            await generate_and_play_audio_streaming(message2, judge_voices[target])
+                        # --- END ADDED CODE ---
+
                 # Handle user input after the pitch
                 user_audio = await asyncio.to_thread(record_audio, 16000, 220, 100, 2)
                 user_text = await transcribe_audio_async(user_audio)
@@ -315,6 +320,12 @@ async def qna_loop():
                 transcript_messages.append((chosen_judge, message))
                 await broadcast_transcript((chosen_judge, message))
 
+                # --- ADDED CODE BELOW ---
+                # Whenever it's a known judge, stream TTS in the backend
+                if chosen_judge in judge_voices:
+                    await generate_and_play_audio_streaming(message, judge_voices[chosen_judge])
+                # --- END ADDED CODE ---
+
                 # If the response routes to another judge
                 if route == 1 and target in PERSONALITY_NAMES:
                     route2, target2, message2 = await get_response(
@@ -325,6 +336,11 @@ async def qna_loop():
                     chat_history.add_message(AIMessage(content=message2))
                     transcript_messages.append((target, message2))
                     await broadcast_transcript((target, message2))
+
+                    # --- ADDED CODE BELOW ---
+                    if target in judge_voices:
+                        await generate_and_play_audio_streaming(message2, judge_voices[target])
+                    # --- END ADDED CODE ---
 
         except Exception as e:
             print(f"Error in Q&A loop: {e}")
@@ -362,7 +378,6 @@ def formatted_history(chat_history: ChatMessageHistory) -> str:
         elif isinstance(message, AIMessage):
             history += f"Assistant: {message.content}\n"
     return history
-
 
 # ------------------------------------------------
 # ANALYSIS + PITCH EVAL
@@ -406,17 +421,15 @@ async def generate_analysis(data: TimerData):
     try:
         # Calculate time
         t_spent = calculate_time_spent(data.time_left)
-
         print("calculate time spent done")
-        
+
         # Calculate WPM
         total_words = sum(len(msg['text'].split()) for msg in data.transcript)
         time_in_minutes = (300 - data.time_left) / 60  # Convert seconds to minutes
         wpm = total_words / time_in_minutes if time_in_minutes > 0 else 0
-
         print("calcualted wpm done")
         
-        # Read emotion data with proper error handling
+        # Read emotion data
         emotion_data = {}
         try:
             with open("emotion_data.json", "r") as f:
@@ -446,7 +459,7 @@ async def generate_analysis(data: TimerData):
             emotions=emotion_data
         )
         
-        # Call evaluate_pitch with proper error handling
+        # Call evaluate_pitch
         try:
             async with aiohttp.ClientSession() as sess:
                 async with sess.post(
@@ -481,86 +494,38 @@ async def generate_analysis(data: TimerData):
             "trace": error_trace
         }, status_code=500)
 
-# @app.post("/generate_analysis")
-# async def generate_analysis(data: TimerData):
-#     """
-#     Generate transcript analysis -> pass to evaluate_pitch.
-#     """
-#     try:
-#         # time
-#         t_spent = calculate_time_spent(data.time_left)
-#         wpm=150.0
-#         # read emotion
-#         emotion_data=None
-#         try:
-#             with open("emotion_data.json","r") as f:
-#                 emotion_data=json.load(f)
-#         except FileNotFoundError:
-#             print("No emotion data found.")
-
-#         res = create_transcript_json(data.transcript, wpm, t_spent, emotion_data)
-#         # build pitch eval
-#         combined = "\n".join([f"{x['speaker']}: {x['text']}" for x in data.transcript])
-#         pitch_eval = PitchEvaluation(
-#             transcript=combined,
-#             wpm=wpm,
-#             time=t_spent,
-#             emotions=emotion_data or {}
-#         )
-#         # call evaluate
-#         url="http://127.0.0.1:8000/evaluate_pitch"
-#         async with aiohttp.ClientSession() as sess:
-#             async with sess.post(url, json=pitch_eval.dict()) as resp:
-#                 eval_res = await resp.json()
-
-#         print("Pitch Evaluation Response:")
-#         print(json.dumps(eval_res, indent=4))
-
-#         if res:
-#             return JSONResponse({
-#                 "analysis_result": res,
-#                 "evaluation_response": eval_res
-#             })
-#         else:
-#             return JSONResponse({
-#                 "error":"Failed to generate analysis"
-#             }, status_code=500)
-
-#     except Exception as e:
-#         return JSONResponse({"error":str(e)}, status_code=500)
-
 @app.post("/evaluate_pitch")
 async def evaluate_pitch(data: PitchEvaluation):
     """
     Evaluate with EnhancedEvaluator -> returns evaluation + logs
     """
     try:
-        out_buf=io.StringIO()
-        orig_stdout=sys.stdout
-        sys.stdout=out_buf
+        out_buf = io.StringIO()
+        orig_stdout = sys.stdout
+        sys.stdout = out_buf
 
-        evaluator=EnhancedEvaluator(OPENAI_API_KEY)
+        evaluator = EnhancedEvaluator(OPENAI_API_KEY)
         from judges.judges import EVALUATION_RUBRIC
-        rub_keys=list(EVALUATION_RUBRIC.keys())
+        rub_keys = list(EVALUATION_RUBRIC.keys())
 
-        eval_results=await evaluator.evaluate_project(data.transcript,rub_keys)
+        eval_results = await evaluator.evaluate_project(data.transcript, rub_keys)
 
-        sys.stdout=orig_stdout
-        captured=out_buf.getvalue()
+        sys.stdout = orig_stdout
+        captured = out_buf.getvalue()
         out_buf.close()
 
         return JSONResponse({
-            "success":True,
-            "evaluation_results":eval_results,
-            "captured_output":captured,
-            "input_data":{
-                "wpm":data.wpm,
-                "time":data.time,
-                "emotions":data.emotions
+            "success": True,
+            "evaluation_results": eval_results,
+            "captured_output": captured,
+            "input_data": {
+                "wpm": data.wpm,
+                "time": data.time,
+                "emotions": data.emotions
             }
         })
     except Exception as e:
-        sys.stdout=orig_stdout
+        sys.stdout = orig_stdout
         if 'out_buf' in locals():
             out_buf.close()
         return JSONResponse(
@@ -578,3 +543,36 @@ async def evaluate_pitch(data: PitchEvaluation):
 if __name__=="__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
+
+
+# --- ADDED CODE BELOW (TTS STREAMING SETUP FOR JUDGES) ---
+import pyaudio
+from elevenlabs import ElevenLabs, play
+
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+if not ELEVENLABS_API_KEY:
+    raise ValueError("ELEVENLABS_API_KEY not found in .env file.")
+
+elevenlabs_streaming_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
+
+judge_voices = {
+   "RBC Judge": "21m00Tcm4TlvDq8ikWAM",
+   "Google Judge": "TxGEqnHWrfWFTfGW9XjX",
+   "1Password Judge": "VR6AewLTigWG4xSOukaG"
+}
+
+async def generate_and_play_audio_streaming(text: str, voice_id: str):
+    """
+    Uses ElevenLabs streaming TTS to play audio in real-time.
+    """
+    try:
+        audio_stream = elevenlabs_streaming_client.text_to_speech.convert(
+            text=text,
+            voice_id=voice_id,
+            model_id="eleven_monolingual_v1",
+            stream=True
+        )
+        for chunk in audio_stream:
+            await asyncio.to_thread(play, chunk)
+    except Exception as e:
+        print(f"TTS Streaming Error: {e}")

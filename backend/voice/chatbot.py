@@ -1,9 +1,9 @@
-
 import os
 import asyncio
 import numpy as np
+import collections
 from dotenv import load_dotenv
-from voice.personalities import PERSONALITIES, get_personality_chains
+from voice.personalities import get_personality_chains
 from langchain_openai import ChatOpenAI
 from elevenlabs import ElevenLabs, play
 import pyaudio
@@ -24,7 +24,7 @@ if not ELEVENLABS_API_KEY:
     raise ValueError("ELEVENLABS_API_KEY not found in .env file.")
 
 # -------------------------------------------------
-# Initialize FasterWhisper
+# Initialize Models
 # -------------------------------------------------
 whisper_model = WhisperModel(
     "small.en",
@@ -32,15 +32,14 @@ whisper_model = WhisperModel(
     compute_type="int8"
 )
 
-# Optionally, initialize ElevenLabs for TTS
 elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
-# Load personalities (with multi-route prompt)
+# Load personalities first so we can use them throughout the code
 personalities = get_personality_chains(OPENAI_API_KEY)
 PERSONALITY_NAMES = list(personalities.keys())
 
 # -------------------------------------------------
-# Custom Handler
+# Custom Non-Streaming Handler
 # -------------------------------------------------
 class NonStreamingCallbackHandler(BaseCallbackHandler):
     def __init__(self):
@@ -57,122 +56,141 @@ class NonStreamingCallbackHandler(BaseCallbackHandler):
         pass
 
     def get_complete_response(self):
-        # Join tokens, remove any triple-backticks
-        return ''.join(self.complete_response).replace('```', '').strip()
+        full_response = ''.join(self.complete_response)
+        clean_response = (
+            full_response
+            .replace('```', '')
+            .replace('SpeakWithEachOther: false', '')
+            .replace('SpeakWithEachOther: true', '')
+            .strip()
+        )
+        return clean_response
 
-# # -------------------------------------------------
-# # Optional TTS
-# # -------------------------------------------------
+# -------------------------------------------------
+# Audio Generation
+# -------------------------------------------------
 async def generate_and_play_audio(text: str, voice_id: str):
     try:
         audio = elevenlabs_client.text_to_speech.convert(
             text=text,
             voice_id=voice_id,
-            model_id="eleven_flash_v2"
+            model_id="eleven_monolingual_v1"
         )
         await asyncio.to_thread(play, audio)
     except Exception as e:
-        print(f"TTS Error: {e}")
+        print(f"\nTTS Error: {e}")
 
 # -------------------------------------------------
-# parse_personality_response
-# -------------------------------------------------
-def parse_personality_response(full_response: str):
-    route, target, message = None, None, None
-    lines = [ln.strip() for ln in full_response.splitlines() if ln.strip()]
-
-    for ln in lines:
-        low = ln.lower()
-        if low.startswith("route:"):
-            val = ln.split(":",1)[1].strip()
-            if val in ["1","2"]:
-                route = int(val)
-        elif low.startswith("target:"):
-            target = ln.split(":",1)[1].strip()
-        elif low.startswith("message:"):
-            message = ln.split(":",1)[1].strip()
-
-    if route not in [1,2]:
-        route = 2
-        message = full_response
-    if route == 1 and not target:
-        route = 2
-    if not message:
-        message = full_response
-
-    return route, target, message
-
-# -------------------------------------------------
-# get_response: multi-route
+# Response Generation
 # -------------------------------------------------
 async def get_response(personality_name, history, user_input):
-    """
-    Asks the chosen personality to respond. Possibly re-routes or speaks to user.
-    """
     personality_data = personalities.get(personality_name)
     if not personality_data:
-        print(f"[Error] Personality '{personality_name}' not found.")
-        return 2, None, "Personality not found."
+        # Default fallback if something's off
+        return 0, None, "Personality not found."
 
     chain = personality_data["chain"]
     voice_id = personality_data["voice_id"]
-
+    
     handler = NonStreamingCallbackHandler()
+    
     try:
+        # The chain output must follow:
+        #   Route: X
+        #   Target: Y (only if X=1)
+        #   Message: ...
+        
         await chain.ainvoke(
-            {"history": history, "user_input": user_input},
+            {
+                "history": history,
+                "user_input": user_input
+            },
             config={"callbacks": [handler]}
         )
-        raw_response = handler.get_complete_response()
-        route, target, message = parse_personality_response(raw_response)
-        print(f"[Response] Route: {route}, Target: {target}, Message: {message}")
+        
+        full_output = handler.get_complete_response()
+
+        # Parse route, target, and message from the LLM response
+        route = 0
+        target = None
+        message = ""
+
+        for line in full_output.splitlines():
+            line = line.strip()
+            if line.startswith("Route:"):
+                # e.g. "Route: 1"
+                parts = line.split(":",1)
+                if len(parts) == 2:
+                    try:
+                        route = int(parts[1].strip())
+                    except:
+                        route = 0
+            elif line.startswith("Target:"):
+                parts = line.split(":",1)
+                if len(parts) == 2:
+                    target = parts[1].strip()
+            elif line.startswith("Message:"):
+                # everything after "Message:" is the judge's answer
+                parts = line.split(":",1)
+                if len(parts) == 2:
+                    message = parts[1].strip()
+
+        # Then generate and play the audio
+        await generate_and_play_audio(message, voice_id)
+        
         return route, target, message
     except Exception as e:
         print(f"Error in get_response: {e}")
-        return 2, None, f"Encountered an error: {str(e)}"
+        return 0, None, f"I apologize, but I encountered an error: {str(e)}"
 
 # -------------------------------------------------
-# Silence-based audio
+# Audio Recording and Transcription
 # -------------------------------------------------
-def record_audio(rate=16000, chunk=220, silence_threshold=100, silence_duration=2):
-    """
-    Records one chunk of user speech, ending after 'silence_duration' seconds of silence.
-    """
+def record_audio(rate=16000, chunk=220, silence_threshold=100, silence_duration=1):
     audio = pyaudio.PyAudio()
-    stream = audio.open(
-        rate=rate, format=pyaudio.paInt16, channels=1,
-        input=True, frames_per_buffer=chunk
+    stream_audio = audio.open(
+        rate=rate,
+        format=pyaudio.paInt16,
+        channels=1,
+        input=True,
+        frames_per_buffer=chunk
     )
-    frames = []
-    long_term_noise = 0.0
-    curr_noise = 0.0
-    voice_detected = False
-    silent_time = 0.0
 
-    print(f"Start speaking... (Stop after {silence_duration}s of silence)")
+    frames = []
+    audio_buffer = collections.deque(maxlen=int((rate / chunk) * silence_duration))
+    long_term_noise_level = 0.0
+    current_noise_level = 0.0
+    voice_activity_detected = False
+    silence_timer = 0.0
+
+    print("Start speaking...")
 
     while True:
-        data = stream.read(chunk, exception_on_overflow=False)
-        frames.append(data)
+        data = stream_audio.read(chunk, exception_on_overflow=False)
         pegel = np.abs(np.frombuffer(data, dtype=np.int16)).mean()
 
-        long_term_noise = 0.99 * long_term_noise + 0.01 * pegel
-        curr_noise = 0.90 * curr_noise + 0.10 * pegel
+        long_term_noise_level = long_term_noise_level * 0.99 + pegel * (1.0 - 0.99)
+        current_noise_level = current_noise_level * 0.90 + pegel * (1.0 - 0.90)
 
-        if voice_detected:
-            if curr_noise < long_term_noise + silence_threshold:
-                silent_time += chunk / rate
-                if silent_time >= silence_duration:
+        if voice_activity_detected:
+            frames.append(data)
+            if current_noise_level < long_term_noise_level + silence_threshold:
+                silence_timer += chunk / rate
+                if silence_timer >= silence_duration:
                     break
             else:
-                silent_time = 0.0
+                silence_timer = 0.0
         else:
-            if curr_noise > long_term_noise + silence_threshold:
-                voice_detected = True
-                silent_time = 0.0
+            if current_noise_level > long_term_noise_level + silence_threshold:
+                voice_activity_detected = True
+                frames.extend(audio_buffer)
+                audio_buffer.clear()
+                silence_timer = 0.0
+            else:
+                audio_buffer.append(data)
 
-    stream.stop_stream()
-    stream.close()
+    stream_audio.stop_stream()
+    stream_audio.close()
     audio.terminate()
 
     audio_bytes = b''.join(frames)
@@ -183,57 +201,40 @@ async def transcribe_audio_async(audio_np):
     loop = asyncio.get_event_loop()
     with concurrent.futures.ThreadPoolExecutor() as pool:
         text = await loop.run_in_executor(pool, transcribe_audio, audio_np)
-    return text.strip()
+    return text
 
 def transcribe_audio(audio_np):
     segments, info = whisper_model.transcribe(audio_np, beam_size=1)
-    return " ".join(s.text for s in segments).strip()
+    return " ".join(segment.text for segment in segments).strip()
 
 # -------------------------------------------------
-# Decider
+# Decider Chain
 # -------------------------------------------------
 decider_llm = ChatOpenAI(
     api_key=OPENAI_API_KEY,
     model_name="gpt-4o-mini",
     temperature=0.0,
-    streaming=False
+    streaming=False,
 )
 
-def generate_decider_prompt(personalities):
-    """
-    Dynamically generates the DECIDER_SYSTEM_PROMPT based on the personalities in personalities.py.
-    """
-    personality_details = "\n".join(
-        [f"- {p['name']}: {p['description']}" for p in personalities]
-    )
-    return f"""You are a router that chooses which personality is best suited to respond based on the user's message. 
-Choose the most appropriate personality from the following list and reply with only one name:
-{personality_details}
-
-Do not include any additional text."""
-
-
-# DECIDER_SYSTEM_PROMPT = # Generate DECIDER_SYSTEM_PROMPT dynamically
-DECIDER_SYSTEM_PROMPT = generate_decider_prompt(PERSONALITIES)
-
+DECIDER_SYSTEM_PROMPT = """You are a router that chooses which personality (RBC Judge, Google Judge, or 1Password Judge) is best suited to respond based on the user's message. 
+Reply with only one name: "RBC Judge", "Google Judge", or "1Password Judge" (nothing else)."""
 
 async def decide_personality(user_text: str) -> str:
-    msgs = [
-        {"role":"system", "content":DECIDER_SYSTEM_PROMPT},
-        {"role":"user", "content":user_text}
+    messages = [
+        {"role": "system", "content": DECIDER_SYSTEM_PROMPT},
+        {"role": "user", "content": user_text},
     ]
-    out = await decider_llm.agenerate([msgs])
-    decided = out.generations[0][0].text.strip()
-    # Validate the decision
-    valid_personalities = [name.lower() for name in PERSONALITY_NAMES]
-    for name in PERSONALITY_NAMES:
-        if name.lower() == decided.lower():
-            return name
-    return "RBC Judge" 
+    output = await decider_llm.agenerate([messages])
+    text = output.generations[0][0].text.strip()
+    return text if text in PERSONALITY_NAMES else "RBC Judge"
 
 # -------------------------------------------------
-# Main Chat Loop
+# Main Chat Loop (Example)
 # -------------------------------------------------
+# This file shows an example "chat_loop" usage.
+# In your actual app, you might not run it directly here,
+# since we are hooking into FastAPI instead.
 async def chat_loop():
     chat_history = ChatMessageHistory()
     print("\n Chatbot is ready. Press Enter to speak. Type 'exit' to quit.")
@@ -242,23 +243,22 @@ async def chat_loop():
         input_trigger = input("\n Press Enter to speak or 'exit' to quit: ")
         if input_trigger.lower() in ["exit", "quit", "bye"]:
             print("Exiting chat. Goodbye!")
-            # await generate_and_play_audio("Goodbye!", "JBFqnCBsd6RMkjVDRZzb")
+            await generate_and_play_audio("Goodbye!", "JBFqnCBsd6RMkjVDRZzb")
             break
 
         audio_np = await asyncio.to_thread(record_audio)
         user_input = await transcribe_audio_async(audio_np)
-        audio_length = len(audio_np) / 16000  # Assuming 16kHz
+        audio_length = len(audio_np) / 16000  # Assuming the sample rate is 16000 Hz
         if not user_input:
             continue
         num_words = len(user_input.split())
         wpm = num_words / audio_length * 60
 
-        print(f"User: {user_input} [{wpm:.1f} wpm]")
+        print(f"User: {user_input} [{wpm} wpm]")
 
-        # Add user message to history
+        print(f"You said: {user_input}")
         chat_history.add_message(HumanMessage(content=user_input))
 
-        # Format conversation so far for the chain
         formatted_history = ""
         for message in chat_history.messages:
             if isinstance(message, HumanMessage):
@@ -266,7 +266,6 @@ async def chat_loop():
             elif isinstance(message, AIMessage):
                 formatted_history += f"Assistant: {message.content}\n"
 
-        # Check if user explicitly mentions a personality by name
         chosen_personality = None
         for p in PERSONALITY_NAMES:
             if p.lower() in user_input.lower():
@@ -274,50 +273,8 @@ async def chat_loop():
                 break
 
         if not chosen_personality:
-            # Use decider to figure out best initial personality
             chosen_personality = await decide_personality(user_input)
 
-        print(f"\n[Routing to initial personality: {chosen_personality}]\n")
-
-        # Now we handle the multi-step routing among personalities
-        current_personality = chosen_personality
-        current_input = user_input
-        routing_iterations = 0
-        max_routing = 2  # in case they bounce back forever
-
-        while routing_iterations < max_routing:
-            routing_iterations += 1
-
-            print(f"\n{current_personality} responding...\n")
-            # Get that personality's response
-            route, target, message = await get_response(
-                personality_name=current_personality,
-                history=formatted_history,
-                user_input=current_input
-            )
-
-            # Add the message to chat history
-            chat_history.add_message(AIMessage(content=message))
-
-            if route == 2:
-                # The personality is speaking directly to the user
-                print(f"\n{current_personality} => User: {message}\n")
-                break
-            else:
-                # route == 1: pass the message to the target personality
-                if target not in PERSONALITY_NAMES:
-                    print(f"Unknown target personality '{target}'. Ending routing.")
-                    break
-                print(f"\n{current_personality} => {target}: {message}\n")
-
-                # Update for next iteration
-                current_personality = target
-                current_input = message
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(chat_loop())
-    except KeyboardInterrupt:
-        print("\nShutting down...")
-    except Exception as e:
-        print(f"Error: {e}")
+        print(f"\n{chosen_personality}: ", end="", flush=True)
+        route, target, response = await get_response(chosen_personality, formatted_history, user_input)
+        chat_history.add_message(AIMessage(content=response))
