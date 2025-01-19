@@ -31,75 +31,75 @@ PERSONALITIES = [
             "evaluation_criteria": ["security innovation", "usability", "simplicity"]
         }
     },
-    {
-        "name": "UofT Judge",
-        "description": "A representative from UofTHacks specializing in evaluating project design, creativity, and impact. Has a keen eye for front-end design and user experience. Values both technical innovation and creative presentation.",
-        "voice_id": "EXAVITQu4vr4xnSDxMaL", 
-        "question_focus": ["frontend design", "user experience", "creative innovation", "technical implementation", "project presentation"],
-        "prize_categories": [
-            {
-                "name": "Best University of Toronto Hack",
-                "details": "Seeking innovative projects from UofT full-time students. Winners receive one-year ONRamp memberships with access to startup office workspace in the Schwartz Reisman Innovation Building.",
-                "evaluation_criteria": ["innovation", "technical complexity", "UofT student eligibility", "workspace utilization potential"]
-            },
-            {
-                "name": "Ig Nobel Prize-Inspired Award",
-                "details": "For projects that make us laugh first, think later— celebrating creativity, humor, and unexpected ingenuity.",
-                "evaluation_criteria": ["humor", "creativity", "unexpected solutions", "thought-provoking ideas"]
-            },
-            {
-                "name": "Best Beginner Hack",
-                "details": "Recognizing outstanding projects from first-time hackers.",
-                "evaluation_criteria": ["learning curve", "implementation effort", "creativity", "potential"]
-            }
-        ]
-    },
-    {
-        "name": "MLH Judge",
-        "description": "A Major League Hacking representative focused on cutting-edge technology adoption and innovative implementations. Values creative applications of new technologies and well-executed technical solutions. Has extensive experience evaluating hackathon projects across various domains.",
-        "voice_id": "pNInz6obpgDQGcFmaJgB",  # New voice ID
-        "question_focus": ["technical innovation", "implementation quality", "technology integration", "project scalability", "real-world impact"],
-        "prize_categories": [
-            {
-                "name": "Best Use of Generative AI",
-                "details": "Looking for novel applications leveraging Generative AI APIs. Focus on creative tools, intelligent assistants, or next-generation content creation platforms using APIs from OpenAI, Anthropic, Hugging Face, etc.",
-                "evaluation_criteria": ["AI integration", "innovation", "functionality", "real-world impact"]
-            },
-            {
-                "name": "Best AI Project with Databricks Open Source",
-                "prize": "4 Assorted Lego Sets",
-                "details": "Projects utilizing Databricks Open Source projects like Mosaic AI, Data Lakes, MLflow, or Databricks-friendly projects like LanceDB and Llama Index.",
-                "evaluation_criteria": ["use of Databricks tools", "AI implementation", "technical complexity", "innovation"]
-            },
-            {
-                "name": "Best Use of Terraform",
-                "details": "Projects using Terraform for infrastructure management, from ML model deployment to container orchestration.",
-                "evaluation_criteria": ["Terraform implementation", "infrastructure design", "cloud integration", "project organization"]
-            },
-            {
-                "name": "Best Use of Midnight",
-                "details": "Applications built on the Midnight blockchain focusing on data protection and security.",
-                "evaluation_criteria": ["data protection", "blockchain integration", "security features", "user privacy"]
-            },
-            {
-                "name": "Best Domain Name from GoDaddy Registry",
-                "details": "Projects with creative and effective domain names registered through GoDaddy Registry.",
-                "evaluation_criteria": ["domain relevance", "creativity", "branding effectiveness", "memorability"]
-            }
-        ]
-    },
-    {
-        "name": "Warp Judge",
-        "description": "A representative from Warp with expertise in developer tools and workflows. Specializes in evaluating tools that enhance developer productivity and experience. Has deep knowledge of terminal applications, AI integration, and collaborative development environments.",
-        "voice_id": "AZnzlk1XvdvUeBnXmlld",  # New voice ID
-        "question_focus": ["developer experience", "workflow optimization", "tool usability", "AI integration", "team collaboration"],
-        "prize_category": {
-            "name": "Best Developer Tool",
-            "prize": "4 Keychron keyboards",
-            "details": "Seeking the best developer tool that enhances developer productivity and workflow. Looking for innovative solutions that make developers' lives easier.",
-            "evaluation_criteria": ["developer productivity", "tool innovation", "usability", "practical application", "collaboration features"]
-        }
-    }
+    # {
+    #     "name": "UofT Judge",
+    #     "description": "A representative from UofTHacks specializing in evaluating project design, creativity, and impact. Has a keen eye for front-end design and user experience. Values both technical innovation and creative presentation.",
+    #     "voice_id": "EXAVITQu4vr4xnSDxMaL", 
+    #     "question_focus": ["frontend design", "user experience", "creative innovation", "technical implementation", "project presentation"],
+    #     "prize_categories": [
+    #         {
+    #             "name": "Best University of Toronto Hack",
+    #             "details": "Seeking innovative projects from UofT full-time students. Winners receive one-year ONRamp memberships with access to startup office workspace in the Schwartz Reisman Innovation Building.",
+    #             "evaluation_criteria": ["innovation", "technical complexity", "UofT student eligibility", "workspace utilization potential"]
+    #         },
+    #         {
+    #             "name": "Ig Nobel Prize-Inspired Award",
+    #             "details": "For projects that make us laugh first, think later— celebrating creativity, humor, and unexpected ingenuity.",
+    #             "evaluation_criteria": ["humor", "creativity", "unexpected solutions", "thought-provoking ideas"]
+    #         },
+    #         {
+    #             "name": "Best Beginner Hack",
+    #             "details": "Recognizing outstanding projects from first-time hackers.",
+    #             "evaluation_criteria": ["learning curve", "implementation effort", "creativity", "potential"]
+    #         }
+    #     ]
+    # },
+    # {
+    #     "name": "MLH Judge",
+    #     "description": "A Major League Hacking representative focused on cutting-edge technology adoption and innovative implementations. Values creative applications of new technologies and well-executed technical solutions. Has extensive experience evaluating hackathon projects across various domains.",
+    #     "voice_id": "pNInz6obpgDQGcFmaJgB",  # New voice ID
+    #     "question_focus": ["technical innovation", "implementation quality", "technology integration", "project scalability", "real-world impact"],
+    #     "prize_categories": [
+    #         {
+    #             "name": "Best Use of Generative AI",
+    #             "details": "Looking for novel applications leveraging Generative AI APIs. Focus on creative tools, intelligent assistants, or next-generation content creation platforms using APIs from OpenAI, Anthropic, Hugging Face, etc.",
+    #             "evaluation_criteria": ["AI integration", "innovation", "functionality", "real-world impact"]
+    #         },
+    #         {
+    #             "name": "Best AI Project with Databricks Open Source",
+    #             "prize": "4 Assorted Lego Sets",
+    #             "details": "Projects utilizing Databricks Open Source projects like Mosaic AI, Data Lakes, MLflow, or Databricks-friendly projects like LanceDB and Llama Index.",
+    #             "evaluation_criteria": ["use of Databricks tools", "AI implementation", "technical complexity", "innovation"]
+    #         },
+    #         {
+    #             "name": "Best Use of Terraform",
+    #             "details": "Projects using Terraform for infrastructure management, from ML model deployment to container orchestration.",
+    #             "evaluation_criteria": ["Terraform implementation", "infrastructure design", "cloud integration", "project organization"]
+    #         },
+    #         {
+    #             "name": "Best Use of Midnight",
+    #             "details": "Applications built on the Midnight blockchain focusing on data protection and security.",
+    #             "evaluation_criteria": ["data protection", "blockchain integration", "security features", "user privacy"]
+    #         },
+    #         {
+    #             "name": "Best Domain Name from GoDaddy Registry",
+    #             "details": "Projects with creative and effective domain names registered through GoDaddy Registry.",
+    #             "evaluation_criteria": ["domain relevance", "creativity", "branding effectiveness", "memorability"]
+    #         }
+    #     ]
+    # },
+    # {
+    #     "name": "Warp Judge",
+    #     "description": "A representative from Warp with expertise in developer tools and workflows. Specializes in evaluating tools that enhance developer productivity and experience. Has deep knowledge of terminal applications, AI integration, and collaborative development environments.",
+    #     "voice_id": "AZnzlk1XvdvUeBnXmlld",  # New voice ID
+    #     "question_focus": ["developer experience", "workflow optimization", "tool usability", "AI integration", "team collaboration"],
+    #     "prize_category": {
+    #         "name": "Best Developer Tool",
+    #         "prize": "4 Keychron keyboards",
+    #         "details": "Seeking the best developer tool that enhances developer productivity and workflow. Looking for innovative solutions that make developers' lives easier.",
+    #         "evaluation_criteria": ["developer productivity", "tool innovation", "usability", "practical application", "collaboration features"]
+    #     }
+    # }
 ]
 
 def get_personality_chains(openai_api_key):
