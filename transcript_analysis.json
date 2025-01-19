@@ -1,10 +1,10 @@
 {
-    "transcript": "User (Pitch): Hello, I am starting my pitch about a mobile application that helps students budget their finances.\nRBC Judge: Thank you for your pitch! Could you elaborate on the security measures you plan to implement within your mobile application to protect students' financial data and prevent cyber threats, especially as they engage in online shopping?\nUser: No, not really. I don't really have any ideas for that. Sorry.",
-    "wpm": 93.65853658536585,
-    "time": "0:41",
+    "transcript": "User (Pitch): Hello, so welcome to my pitch. I'm going to pitch a very cool idea too.\nGoogle Judge: Thank you for your pitch! To better understand how to support your idea, could you elaborate on the scalability considerations you've thought about for your application? How do you envision handling a growing user base while maintaining performance?\nUser: That's a very good question. I'm actually not too sure about that.",
+    "wpm": 105.4054054054054,
+    "time": "0:37",
     "emotions": {
-        "neutral": 44.881889763779526,
-        "happy": 31.496062992125985,
-        "fear": 18.503937007874015
+        "neutral": 40.28776978417266,
+        "happy": 28.05755395683453,
+        "fear": 27.33812949640288
     }
 }

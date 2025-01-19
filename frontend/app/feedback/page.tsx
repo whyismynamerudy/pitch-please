@@ -232,7 +232,7 @@ function ExpandableCard({ company, isExpanded, onExpand }: ExpandableCardProps) 
 function AnalysisSection({ analysisData }: { analysisData: AD | null }) {
   if (!analysisData) return null;
 
-  const { emotions, wpm, time, transcript } = analysisData.analysis_results;
+  const { emotions, wpm, time, transcript } = analysisData.analysis_result;
   
   // Transform emotions data for pie chart
   const emotionsData = Object.entries(emotions).map(([name, value]) => ({

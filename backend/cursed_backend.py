@@ -58,6 +58,7 @@ video_capture = None
 emotion_counts = defaultdict(int)
 total_frames = 0
 threshold = 5.0
+force_audio_stop = False
 
 # -------------------------------
 # CHAT / Q&A
@@ -89,22 +90,35 @@ elevenlabs_streaming_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 # -------------------------------
 force_audio_stop = False
 
-# -------------------------------
-# HELPER: Play TTS in memory
-# -------------------------------
+active_audio_streams = []
+p = pyaudio.PyAudio()
+
 def play_audio_in_memory(mp3_data: bytes):
+    global active_audio_streams
     segment = AudioSegment.from_file(io.BytesIO(mp3_data), format="mp3")
-    p = pyaudio.PyAudio()
     stream = p.open(
         format=p.get_format_from_width(segment.sample_width),
         channels=segment.channels,
         rate=segment.frame_rate,
         output=True
     )
+    active_audio_streams.append(stream)  # Track the stream
     stream.write(segment.raw_data)
     stream.stop_stream()
     stream.close()
-    p.terminate()
+    active_audio_streams.remove(stream)  # Remove when done
+
+def stop_all_audio():
+    """Stop all active audio streams"""
+    global active_audio_streams
+    for stream in active_audio_streams:
+        try:
+            if not stream.is_stopped():
+                stream.stop_stream()
+            stream.close()
+        except:
+            pass  # Ignore errors when stopping streams
+    active_audio_streams.clear()
 
 async def generate_and_play_audio_streaming(text: str, voice_id: str):
     """
@@ -112,7 +126,7 @@ async def generate_and_play_audio_streaming(text: str, voice_id: str):
     *without* blocking transcript updates.
     This checks force_audio_stop to immediately break if /stop was called.
     """
-    global force_audio_stop
+    global force_audio_stop, active_audio_streams
     try:
         audio_stream = elevenlabs_streaming_client.text_to_speech.convert(
             text=text,
@@ -120,11 +134,26 @@ async def generate_and_play_audio_streaming(text: str, voice_id: str):
             model_id="eleven_monolingual_v1",
             stream=True
         )
+        
+        # Create PyAudio stream
+        p_stream = p.open(
+            format=pyaudio.paFloat32,
+            channels=1,
+            rate=44100,
+            output=True
+        )
+        active_audio_streams.append(p_stream)
+        
         for chunk in audio_stream:
-            # If forced stop, break immediately (no further audio).
             if force_audio_stop:
                 break
             await asyncio.to_thread(play, chunk)
+            
+        if p_stream in active_audio_streams:
+            active_audio_streams.remove(p_stream)
+        p_stream.stop_stream()
+        p_stream.close()
+            
     except Exception as e:
         if not force_audio_stop:  # Only log if it's not due to forced stop
             print(f"TTS Streaming Error: {e}")
@@ -208,9 +237,6 @@ def save_emotion_data():
             json.dump(sorted_e,f,indent=4)
         print("Saved emotion_data.json")
 
-# -------------------------------
-# STOP
-# -------------------------------
 @app.get("/stop")
 async def stop_all():
     """
@@ -221,12 +247,13 @@ async def stop_all():
     """
     global is_recording, chat_active, qna_mode, force_audio_stop
     force_audio_stop = True      # Stop ongoing TTS
+    stop_all_audio()            # Immediately stop all audio
     is_recording = False
     chat_active = False
     qna_mode = False
     pitch_captured_event.set()
 
-    return JSONResponse({"message":"Session stopped."})
+    return JSONResponse({"message": "Session stopped."})
 
 # -------------------------------
 # START CHAT
