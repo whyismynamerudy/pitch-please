@@ -164,6 +164,17 @@ export default function FeedbackPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadTestData = async () => {
+    try {
+      const response = await fetch('/hi.json');
+      const data = await response.json();
+      setAnalysisData(data);
+    } catch (error) {
+      console.error('Error loading test data:', error);
+      setError('Error loading test data');
+    }
+  };
+
   useEffect(() => {
     try {
       // Retrieve data from localStorage
@@ -227,9 +238,17 @@ export default function FeedbackPage() {
         </nav>
 
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <h1 className="text-6xl font-bold mb-12 bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text text-center">
-            Interview Feedback
-          </h1>
+          <div className="flex justify-center items-center gap-4 mb-12">
+            <h1 className="text-6xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text text-center">
+              Interview Feedback
+            </h1>
+            <button
+              onClick={loadTestData}
+              className="px-4 py-2 bg-purple-500 rounded-lg hover:bg-purple-600 transition-colors"
+            >
+              Load Test Data
+            </button>
+          </div>
 
           {/* General Consensus Section */}
           <div className="mb-12">
