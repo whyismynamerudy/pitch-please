@@ -1,6 +1,8 @@
 # pitch-please
 no bad pitches!
 
+A submission to UofTHacks 12. Check out our submission [here](https://dorahacks.io/buidl/21648/)!
+
 ## Installation
 - For `backend`:
     - `pip install -r backend/requirements.txt`
