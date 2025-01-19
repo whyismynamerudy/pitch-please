@@ -49,9 +49,9 @@ export default function UploadPage() {
         <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
           <Card className="w-full max-w-3xl bg-[#1c1b2b] border-gray-800">
             <CardHeader>
-              <CardTitle className="text-4xl font-bold bg-gradient-to-r from-[#6366f1] to-[#82a9ee] bg-clip-text text-transparent">
+              <h1 className="text-5xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500">
                 Upload
-              </CardTitle>
+              </h1>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Rubric Section */}
