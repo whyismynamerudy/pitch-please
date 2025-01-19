@@ -1,12 +1,12 @@
 {
-    "transcript": "User: Hello, I'm allowed to speak with other people. I'm presenting my project and I would love  a diverse amount of judges.\nGoogle Judge: What specific strategies have you implemented in your project to ensure scalability and maintain a seamless user experience as your user base grows?\nUser: I implemented a good amount of different strategies.  Is there anyone else who would like to speak to me about it?\nMLH Judge: That's great to hear! Could you share more about the specific technical innovations you've incorporated into your project to enhance its functionality and real-world impact?\nUser: Yeah, for sure. There's like things.\nGoogle Judge: Could you elaborate on how you have prioritized accessibility in your project, and what metrics you are using to measure its effectiveness for diverse user groups?\nUser: No.\nGoogle Judge: I understand if you prefer not to discuss that. Is there anything else I can assist you with regarding your project?\nUser: No.\nGoogle Judge: Thank you for your time! If you have any other questions or need assistance in the future, feel free to reach out.\nUser: No, I want to speak to someone else.\nGoogle Judge: Thank you for your time! I hope you find the feedback you're looking for. If you need assistance in the future, feel free to reach out.\nUser: Okay, can I speak to a different judge?  Is that possible?\nGoogle Judge: Thank you for your interest in speaking with another judge! I hope your next conversation provides the feedback you're seeking. If you have any other questions or need assistance in the future, feel free to reach out.",
+    "transcript": "User: Hi, how are you?\nMLH Judge: That's great to hear! To kick things off, can you share a bit about the innovative technologies or frameworks you've integrated into your project, and how they enhance its functionality or impact?\nUser: No, I cannot. I'm actually, I don't have any good technologies.\nMLH Judge: I understand, and that's completely okay! If you're looking for inspiration or assistance with your project, feel free to ask. Is there anything specific you would like help with?\nUser: I don't want any inspiration.\n1Password Judge: I respect your decision! If there's anything else you'd like to discuss or any questions you have about security practices or privacy measures, feel free to let me know.",
     "wpm": 150.0,
-    "time": "1:45",
+    "time": "0:44",
     "emotions": {
-        "happy": 41.52823920265781,
-        "neutral": 20.930232558139537,
-        "angry": 17.60797342192691,
-        "fear": 10.299003322259136,
-        "surprise": 6.976744186046512
+        "happy": 33.45195729537366,
+        "neutral": 27.75800711743772,
+        "fear": 16.72597864768683,
+        "surprise": 12.455516014234876,
+        "disgust": 9.252669039145907
     }
 }
