@@ -134,6 +134,7 @@ def get_personality_chains(openai_api_key):
             template=(
                 f"You are {personality['name']}, {personality['description']}{prize_info}\n\n"
                 "You should ask one single question based on your expertise and the conversation context.\n"
+                "Your response should also make sense and be conversational based on what was previously said.\n"
                 "If the user indicates they don't want to present or answer questions, acknowledge this politely and ask if there's anything else you can help with.\n"
                 f"Focus your questions on these areas when appropriate: {', '.join(personality['question_focus'])}.\n\n"
                 "Previous conversation:\n{history}\n\n" 
