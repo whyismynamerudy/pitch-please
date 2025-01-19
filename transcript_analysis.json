@@ -1,12 +1,10 @@
 {
-    "transcript": "User (Pitch): Hi friends, how are you today? I am doing great!\nMLH Judge: I'm glad to hear you're doing great! Can you tell me more about the technical innovations in your project and how they leverage the technologies you've chosen?\nUser: No, I cannot do that.\nGoogle Judge: That's completely understandable! If there's anything else you'd like to discuss or any questions you have, feel free to ask.",
+    "transcript": "User (Pitch): Hello.",
     "wpm": 150.0,
-    "time": "0:23",
+    "time": "0:32",
     "emotions": {
-        "happy": 33.45195729537366,
-        "neutral": 27.75800711743772,
-        "fear": 16.72597864768683,
-        "surprise": 12.455516014234876,
-        "disgust": 9.252669039145907
+        "disgust": 60.0,
+        "angry": 20.0,
+        "happy": 8.0
     }
 }

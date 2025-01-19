@@ -12,6 +12,7 @@ export default function PitchPage() {
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
 
   const videoRef = useRef<HTMLImageElement>(null);
+  const [videoAvailable, setVideoAvailable] = useState(false); 
 
   // Timer
   useEffect(() => {
@@ -42,10 +43,14 @@ export default function PitchPage() {
     wsVideo.onmessage = (evt) => {
       if (videoRef.current) {
         videoRef.current.src = URL.createObjectURL(new Blob([evt.data], { type: 'image/jpeg' }));
+        setVideoAvailable(true); // Set video availability to true
       }
     };
     wsVideo.onerror = (err) => console.error("Video WS error:", err);
-    wsVideo.onclose = () => console.log("Video WS closed");
+    wsVideo.onclose = () => {
+      console.log("Video WS closed");
+      setVideoAvailable(false); // Reset video availability
+    };
     setVideoWebSocket(wsVideo);
 
     // 3) WebSocket for transcript
@@ -74,6 +79,7 @@ export default function PitchPage() {
   }
 
   async function handleStop() {
+    setVideoAvailable(false);
     // First stop everything as before
     const res = await fetch('http://127.0.0.1:8000/stop');
     const dat = await res.json();
@@ -185,10 +191,14 @@ export default function PitchPage() {
             {/* Video */}
             <div
               className={`w-full aspect-video rounded-lg border border-gray-700 mb-4 overflow-hidden ${
-                isSessionActive && videoRef.current?.src ? 'bg-black' : 'bg-[#1c1b2b]'
+                videoAvailable ? 'bg-black' : 'bg-[#1c1b2b]'
               }`}
             >
-              <img ref={videoRef} alt="Live Feed" className="w-full h-full object-cover" />
+              <img
+                ref={videoRef}
+                alt="Live Feed"
+                className={`w-full h-full object-cover ${videoAvailable ? '' : 'hidden'}`}
+              />
             </div>
 
             {/* Sponsor images */}
