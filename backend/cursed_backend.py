@@ -220,76 +220,45 @@ async def qna_loop():
     async with qna_lock:
         try:
             while chat_active and qna_mode:
-                # 1. Judge speaks first if it's the first turn
-                if len(chat_history.messages) == 1:  # Only pitch is present
-                    # Decide which personality should speak
-                    chosen_personality = await decide_personality("Start Q&A")
-                    print(f"[Q&A] Chosen Personality: {chosen_personality}")
+                # Get current chat history length to check if it's the first interaction
+                current_history_len = len(chat_history.messages)
 
-                    # Get judge's response
-                    route, target, message = await get_response(
-                        personality_name=chosen_personality,
-                        history=formatted_history(chat_history),
-                        user_input="Start Q&A"
-                    )
-
-                    # Add judge's response to chat history and broadcast
-                    chat_history.add_message(AIMessage(content=message))
-                    transcript_messages.append((chosen_personality, message))
-                    await broadcast_transcript((chosen_personality, message))
-
-                    # Handle routing if Route=1
-                    if route == 1 and target in PERSONALITY_NAMES:
-                        # Get response from the target personality
-                        route2, target2, message2 = await get_response(
-                            personality_name=target,
-                            history=formatted_history(chat_history),
-                            user_input=message
-                        )
-
-                        # Add the second judge's response to chat history and broadcast
-                        chat_history.add_message(AIMessage(content=message2))
-                        transcript_messages.append((target, message2))
-                        await broadcast_transcript((target, message2))
-
-                # 2. Wait for user to speak (2 seconds of silence)
-                user_audio = await asyncio.to_thread(record_audio, rate=16000, chunk=220, silence_threshold=100, silence_duration=2)
-                user_text = await transcribe_audio_async(user_audio)
-                user_text = user_text.strip()
-
-                if not user_text:
-                    continue  # Ignore empty inputs
-
-                # 3. Add user message to chat history and broadcast
-                chat_history.add_message(HumanMessage(content=user_text))
-                transcript_messages.append(("User", user_text))
-                await broadcast_transcript(("User", user_text))
-
-                # 4. Decide which personality should respond
+                # Judge speaks first, either at start or after user response
                 chosen_personality = None
-                for p in PERSONALITY_NAMES:
-                    if p.lower() in user_text.lower():
-                        chosen_personality = p
-                        break
-
-                if not chosen_personality:
-                    chosen_personality = await decide_personality(user_text)
+                
+                if current_history_len == 1:  # Only pitch is present - first judge interaction
+                    # Initial judge selection for Q&A start
+                    chosen_personality = await decide_personality("Start Q&A")
+                else:
+                    # Get the last user message for context
+                    last_user_msg = ""
+                    for msg in reversed(chat_history.messages):
+                        if isinstance(msg, HumanMessage):
+                            last_user_msg = msg.content
+                            break
+                    # Decide which personality should respond
+                    for p in PERSONALITY_NAMES:
+                        if p.lower() in last_user_msg.lower():
+                            chosen_personality = p
+                            break
+                    if not chosen_personality:
+                        chosen_personality = await decide_personality(last_user_msg)
 
                 print(f"[Q&A] Chosen Personality: {chosen_personality}")
 
-                # 5. Get the judge's response
+                # Get judge's response
                 route, target, message = await get_response(
                     personality_name=chosen_personality,
                     history=formatted_history(chat_history),
-                    user_input=user_text
+                    user_input="Start Q&A" if current_history_len == 1 else last_user_msg
                 )
 
-                # 6. Add judge's response to chat history and broadcast
+                # Add judge's response to chat history and broadcast
                 chat_history.add_message(AIMessage(content=message))
                 transcript_messages.append((chosen_personality, message))
                 await broadcast_transcript((chosen_personality, message))
 
-                # 7. Handle routing if Route=1 (up to two personalities)
+                # Handle routing if Route=1
                 if route == 1 and target in PERSONALITY_NAMES:
                     # Get response from the target personality
                     route2, target2, message2 = await get_response(
@@ -302,6 +271,19 @@ async def qna_loop():
                     chat_history.add_message(AIMessage(content=message2))
                     transcript_messages.append((target, message2))
                     await broadcast_transcript((target, message2))
+
+                # Now wait for user response
+                user_audio = await asyncio.to_thread(record_audio, rate=16000, chunk=220, silence_threshold=100, silence_duration=2)
+                user_text = await transcribe_audio_async(user_audio)
+                user_text = user_text.strip()
+
+                if not user_text:
+                    continue  # Ignore empty inputs
+
+                # Add user message to chat history and broadcast
+                chat_history.add_message(HumanMessage(content=user_text))
+                transcript_messages.append(("User", user_text))
+                await broadcast_transcript(("User", user_text))
 
         except Exception as e:
             print(f"Error during Q&A loop: {e}")
