@@ -2,6 +2,7 @@
 
 import io
 import sys
+import aiohttp
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
@@ -200,6 +201,7 @@ def create_transcript_json(transcript_data: list, wpm: float, time_spent: str, e
         return None
         
     return data
+
 @app.post("/generate_analysis")
 async def generate_analysis(data: TimerData):
     """
@@ -242,17 +244,20 @@ async def generate_analysis(data: TimerData):
         )
         
         # Send PitchEvaluation object to evaluate_pitch function
-        evaluation_response = await evaluate_pitch(pitch_evaluation)
+        evaluate_pitch_url = "http://127.0.0.1:8000/evaluate_pitch"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(evaluate_pitch_url, json=pitch_evaluation.dict()) as resp:
+                evaluation_response = await resp.json()
         
         # Print the evaluation response in the terminal
         print("Pitch Evaluation Response:")
-        print(evaluation_response.json(indent=4))
+        print(json.dumps(evaluation_response, indent=4))
         
         # Return the original analysis result along with evaluation response
         if result:
             return JSONResponse(content={
                 "analysis_result": result,
-                "evaluation_response": evaluation_response.json()
+                "evaluation_response": evaluation_response
             })
         else:
             return JSONResponse(
@@ -264,6 +269,7 @@ async def generate_analysis(data: TimerData):
             content={"error": str(e)},
             status_code=500
         )
+
     
 @app.get("/stop")
 async def stop_all():
@@ -476,7 +482,7 @@ def formatted_history(chat_history: ChatMessageHistory) -> str:
 
 
 
-# @app.post("/evaluate_pitch")
+@app.post("/evaluate_pitch")
 async def evaluate_pitch(data: PitchEvaluation):
     """
     Evaluates a pitch using AI judges and returns both results and captured output.
