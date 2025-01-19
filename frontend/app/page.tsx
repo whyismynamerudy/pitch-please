@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 export default function Home() {
   return (
-    <div className="min-h-screen relative" style={{ background: 'rgb(22, 14, 34)' }}>
+    <div className="min-h-screen relative" style={{ background: 'rgb(66,65,73)' }}>
       {/* Background Beams */}
       <div className="absolute inset-0 z-0">
         <BackgroundBeamsWithCollision />
