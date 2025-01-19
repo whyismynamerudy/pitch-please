@@ -134,11 +134,13 @@ export default function PitchPage() {
             </div>
           </div>
         </nav>
+        <br></br>
+        <br></br>
 
-        <h1 className="text-6xl font-bold bg-gradient-to-r from-[#6366f1] to-[#4f46e5]
-                       bg-clip-text text-transparent mb-8">
+        <h1 className="text-5xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-indigo-500">
           Pitch
         </h1>
+        <br></br>
 
         <div className="flex gap-8">
           <div className="flex-1">
@@ -210,7 +212,8 @@ export default function PitchPage() {
 
           {/* Transcript */}
           <div className="flex-1">
-            <h2 className="text-xl font-semibold text-white mb-2">Transcript</h2>
+            <br></br>
+            <h2 className="text-2xl font-semibold text-white mb-2">Transcript</h2>
             <div className="bg-[#1c1b2b] p-4 rounded-md min-h-[300px] overflow-y-auto text-white">
               {transcript.map((entry, i) => (
                 <div key={i} className="mb-2">
