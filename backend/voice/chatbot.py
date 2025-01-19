@@ -3,7 +3,7 @@ import os
 import asyncio
 import numpy as np
 from dotenv import load_dotenv
-from voice.personalities import get_personality_chains
+from voice.personalities import PERSONALITIES, get_personality_chains
 from langchain_openai import ChatOpenAI
 from elevenlabs import ElevenLabs, play
 import pyaudio
@@ -199,7 +199,23 @@ decider_llm = ChatOpenAI(
     streaming=False
 )
 
-DECIDER_SYSTEM_PROMPT = """You are a router that chooses which personality is best suited to respond based on the user's message. Choose the most appropriate personality from the following list and reply with only one name: RBC Judge, Google Judge, 1Password Judge, UofT Judge, MLH Judge, Warp Judge. Do not include any additional text."""
+def generate_decider_prompt(personalities):
+    """
+    Dynamically generates the DECIDER_SYSTEM_PROMPT based on the personalities in personalities.py.
+    """
+    personality_details = "\n".join(
+        [f"- {p['name']}: {p['description']}" for p in personalities]
+    )
+    return f"""You are a router that chooses which personality is best suited to respond based on the user's message. 
+Choose the most appropriate personality from the following list and reply with only one name:
+{personality_details}
+
+Do not include any additional text."""
+
+
+# DECIDER_SYSTEM_PROMPT = # Generate DECIDER_SYSTEM_PROMPT dynamically
+DECIDER_SYSTEM_PROMPT = generate_decider_prompt(PERSONALITIES)
+
 
 async def decide_personality(user_text: str) -> str:
     msgs = [
@@ -213,7 +229,7 @@ async def decide_personality(user_text: str) -> str:
     for name in PERSONALITY_NAMES:
         if name.lower() == decided.lower():
             return name
-    return "UofT Judge"  # Default fallback
+    return "RBC Judge" 
 
 # -------------------------------------------------
 # Main Chat Loop

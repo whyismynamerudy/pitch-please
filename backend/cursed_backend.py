@@ -208,23 +208,26 @@ async def start_chat(bg: BackgroundTasks):
 
 async def pitch_capture_task():
     """
-    Record a chunk as the pitch, place it in chat_history.
+    Record a pitch and add it as the first user message in chat_history.
     """
     global chat_active, chat_history, transcript_messages
     if not chat_active:
         return
 
-    pitch_audio = await asyncio.to_thread(record_audio, 16000,220,100,2)
+    pitch_audio = await asyncio.to_thread(record_audio, 16000, 220, 100, 2)
     pitch_text = await transcribe_audio_async(pitch_audio)
     pitch_text = pitch_text.strip()
-    if pitch_text:
-        chat_history.add_message(HumanMessage(content=pitch_text))
-        transcript_messages.append(("User", pitch_text))
-        await broadcast_transcript(("User", pitch_text))
-    else:
-        await broadcast_transcript(("System","No pitch captured."))
 
-    pitch_captured_event.set()
+    if pitch_text:
+        # Add pitch as the first message
+        chat_history.add_message(HumanMessage(content=pitch_text))
+        transcript_messages.append(("User (Pitch)", pitch_text))
+        await broadcast_transcript(("User (Pitch)", pitch_text))
+    else:
+        await broadcast_transcript(("System", "No pitch captured."))
+
+    pitch_captured_event.set()  # Signal that the pitch has been captured
+
 
 # ------------------------------------------------
 # Q&A
@@ -232,98 +235,100 @@ async def pitch_capture_task():
 @app.get("/begin_qna")
 async def begin_qna(bg: BackgroundTasks):
     """
-    Start Q&A once pitch is captured.
+    Start Q&A once the pitch is captured.
     """
     global qna_mode
     if qna_lock.locked():
-        return JSONResponse({"message":"Q&A session already active"}, status_code=400)
+        return JSONResponse({"message": "Q&A session already active"}, status_code=400)
 
     qna_mode = True
     bg.add_task(qna_loop)
-    return {"message":"Q&A mode started. Judges can respond."}
+    return {"message": "Q&A mode started. Judges can respond."}
+
 
 async def qna_loop():
     """
     Multi-route Q&A:
       user => judge => possible route => user => judge => route ...
-      up to 2 times per turn.
     """
     global chat_active, qna_mode, chat_history, transcript_messages
     async with qna_lock:
         try:
-            # Wait for pitch
+            # Wait for the pitch to be captured
             await pitch_captured_event.wait()
 
             while chat_active and qna_mode:
-                # If only 1 message => first Q
+                # If only the pitch exists in chat history, start Q&A
                 if len(chat_history.messages) == 1:
-                    # Decide which judge starts
-                    init_judge = await decide_personality("Start Q&A - please choose a diverse judge.")
-                    r1, t1, msg1 = await get_response(
-                        personality_name=init_judge,
+                    # Choose the initial judge
+                    initial_judge = await decide_personality("Start Q&A based on the pitch.")
+                    route, target, message = await get_response(
+                        personality_name=initial_judge,
                         history=formatted_history(chat_history),
                         user_input="Start Q&A"
                     )
-                    chat_history.add_message(AIMessage(content=msg1))
-                    transcript_messages.append((init_judge, msg1))
-                    await broadcast_transcript((init_judge, msg1))
+                    chat_history.add_message(AIMessage(content=message))
+                    transcript_messages.append((initial_judge, message))
+                    await broadcast_transcript((initial_judge, message))
 
-                    # If route=1 => pass once
-                    if r1 == 1 and t1 in PERSONALITY_NAMES:
-                        r2, t2, msg2 = await get_response(
-                            personality_name=t1,
+                    # If the judge routes to another judge
+                    if route == 1 and target in PERSONALITY_NAMES:
+                        route2, target2, message2 = await get_response(
+                            personality_name=target,
                             history=formatted_history(chat_history),
-                            user_input=msg1
+                            user_input=message
                         )
-                        chat_history.add_message(AIMessage(content=msg2))
-                        transcript_messages.append((t1, msg2))
-                        await broadcast_transcript((t1, msg2))
+                        chat_history.add_message(AIMessage(content=message2))
+                        transcript_messages.append((target, message2))
+                        await broadcast_transcript((target, message2))
 
-                # user speaks
-                user_audio = await asyncio.to_thread(record_audio,16000,220,100,2)
+                # Handle user input after the pitch
+                user_audio = await asyncio.to_thread(record_audio, 16000, 220, 100, 2)
                 user_text = await transcribe_audio_async(user_audio)
                 user_text = user_text.strip()
                 if not user_text:
                     continue
 
+                # Add user message to history
                 chat_history.add_message(HumanMessage(content=user_text))
                 transcript_messages.append(("User", user_text))
                 await broadcast_transcript(("User", user_text))
 
-                # see if they mention a personality by name
-                chosen_p = None
-                for p in PERSONALITY_NAMES:
-                    if p.lower() in user_text.lower():
-                        chosen_p = p
+                # Determine which judge responds
+                chosen_judge = None
+                for personality in PERSONALITY_NAMES:
+                    if personality.lower() in user_text.lower():
+                        chosen_judge = personality
                         break
-                if not chosen_p:
-                    # decider chooses from the full conversation
-                    chosen_p = await decide_personality(user_text + " Encourage a different judge if possible.")
 
-                # get judge response
-                r_main, t_main, msg_main = await get_response(
-                    personality_name=chosen_p,
+                if not chosen_judge:
+                    # Decide based on conversation context
+                    chosen_judge = await decide_personality(user_text)
+
+                # Get the judge's response
+                route, target, message = await get_response(
+                    personality_name=chosen_judge,
                     history=formatted_history(chat_history),
                     user_input=user_text
                 )
-                chat_history.add_message(AIMessage(content=msg_main))
-                transcript_messages.append((chosen_p, msg_main))
-                await broadcast_transcript((chosen_p, msg_main))
+                chat_history.add_message(AIMessage(content=message))
+                transcript_messages.append((chosen_judge, message))
+                await broadcast_transcript((chosen_judge, message))
 
-                # if route=1 => pass to another judge
-                if r_main == 1 and t_main in PERSONALITY_NAMES:
-                    r_alt, t_alt, msg_alt = await get_response(
-                        personality_name=t_main,
+                # If the response routes to another judge
+                if route == 1 and target in PERSONALITY_NAMES:
+                    route2, target2, message2 = await get_response(
+                        personality_name=target,
                         history=formatted_history(chat_history),
-                        user_input=msg_main
+                        user_input=message
                     )
-                    chat_history.add_message(AIMessage(content=msg_alt))
-                    transcript_messages.append((t_main, msg_alt))
-                    await broadcast_transcript((t_main, msg_alt))
+                    chat_history.add_message(AIMessage(content=message2))
+                    transcript_messages.append((target, message2))
+                    await broadcast_transcript((target, message2))
 
         except Exception as e:
             print(f"Error in Q&A loop: {e}")
-            await broadcast_transcript(("System","An error occurred during Q&A."))
+            await broadcast_transcript(("System", "An error occurred during Q&A."))
         finally:
             qna_mode = False
 
@@ -346,15 +351,18 @@ async def broadcast_transcript(msg: tuple):
 
 def formatted_history(chat_history: ChatMessageHistory) -> str:
     """
-    Transform chat_history into a user/assistant conversation string.
+    Formats the chat history for LLM consumption, clearly labeling the pitch.
     """
-    out = ""
-    for m in chat_history.messages:
-        if isinstance(m, HumanMessage):
-            out += f"User: {m.content}\n"
-        else:
-            out += f"Assistant: {m.content}\n"
-    return out
+    history = ""
+    for i, message in enumerate(chat_history.messages):
+        if i == 0:
+            history += f"User (Pitch): {message.content}\n"
+        elif isinstance(message, HumanMessage):
+            history += f"User: {message.content}\n"
+        elif isinstance(message, AIMessage):
+            history += f"Assistant: {message.content}\n"
+    return history
+
 
 # ------------------------------------------------
 # ANALYSIS + PITCH EVAL
